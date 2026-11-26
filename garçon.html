@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0b0c" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Garçom" />
+  <link rel="manifest" href="garcom.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/garcom-icon-180.png" />
+  <title>Comanda Garçom — 50 Mesas</title>
+  <style>
+    :root {
+      --bg: #0b0b0c;
+      --surface: #141417;
+      --surface-2: #1e1e24;
+      --text: #f7f7f9;
+      --muted: #a1a1aa;
+      --border: #2b2b33;
+
+      --orange: #f97316;
+      --orange-bright: #fb923c;
+      --orange-dark: #ea580c;
+
+      --livre: #22c55e;
+      --livre-bg: rgba(34, 197, 94, 0.13);
+      --ocupada: #f97316;
+      --ocupada-bg: rgba(249, 115, 22, 0.18);
+      --fechamento: #f59e0b;
+      --fechamento-bg: rgba(245, 158, 11, 0.16);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      padding-bottom: max(32px, env(safe-area-inset-bottom));
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(11, 11, 12, 0.94);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      padding: calc(12px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 12px calc(14px + env(safe-area-inset-left));
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .brand { display: flex; flex-direction: column; }
+    .brand strong { font-size: 1rem; letter-spacing: 0.2px; color: var(--orange-bright); }
+    .brand span { font-size: 0.78rem; color: var(--muted); }
+
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      background: var(--surface-2);
+      transition: transform 0.08s ease, opacity 0.15s ease, background 0.15s ease;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-primary { background: var(--orange); color: #0b0b0c; }
+    .btn-primary:hover { background: var(--orange-bright); }
+    .btn-success { background: var(--orange); color: #0b0b0c; }
+    .btn-success:hover { background: var(--orange-bright); }
+    .btn-blue { background: var(--orange-dark); color: #fff; }
+    .btn-blue:hover { background: var(--orange); }
+    .btn-warn { background: #3b2314; color: var(--orange-bright); border: 1px solid rgba(249, 115, 22, 0.45); }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost:hover { border-color: var(--orange); color: var(--orange-bright); }
+    .btn-sm { padding: 6px 10px; font-size: 0.8rem; border-radius: 8px; }
+
+    .container { padding: 14px; max-width: 900px; margin: 0 auto; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+      font-size: 0.8rem;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .dot { width: 9px; height: 9px; border-radius: 50%; }
+    .dot.livre { background: var(--livre); }
+    .dot.ocupada { background: var(--ocupada); }
+    .dot.fechamento { background: var(--fechamento); }
+
+    .grid-mesas {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+      gap: 9px;
+    }
+
+    .mesa-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 6px;
+      text-align: center;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-height: 76px;
+      justify-content: center;
+    }
+    .mesa-card.livre { border-color: rgba(34, 197, 94, 0.55); background: var(--livre-bg); }
+    .mesa-card.ocupada { border-color: rgba(249, 115, 22, 0.75); background: var(--ocupada-bg); }
+    .mesa-card.fechamento { border-color: rgba(245, 158, 11, 0.8); background: var(--fechamento-bg); }
+
+    .mesa-num { font-size: 1.05rem; font-weight: 800; color: #fff; }
+    .mesa-card.ocupada .mesa-num { color: var(--orange-bright); }
+    .mesa-status { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+    .mesa-total { font-size: 0.78rem; font-weight: 700; color: #fff; margin-top: 2px; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.78);
+      z-index: 50;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border-top-left-radius: 18px;
+      border-top-right-radius: 18px;
+      border: 1px solid var(--border);
+      width: 100%;
+      max-width: 680px;
+      max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top)));
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-body {
+      padding: 14px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .box-add {
+      background: var(--surface-2);
+      border: 1px solid rgba(249, 115, 22, 0.35);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    input, select {
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      outline: none;
+    }
+    input:focus, select:focus {
+      border-color: var(--orange);
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.22);
+    }
+    input[type="checkbox"] { width: auto; }
+
+    .row-2 { display: grid; grid-template-columns: 1fr 110px; gap: 8px; }
+
+    .item-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .item-card.cancelado {
+      opacity: 0.55;
+      border-style: dashed;
+    }
+    .item-card.cancelado .item-nome { text-decoration: line-through; color: #fb923c; }
+
+    .item-meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .item-actions { display: flex; align-items: center; gap: 6px; }
+
+    .modal-footer {
+      padding: 12px 16px;
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .total-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+    .total-line span:last-child { color: var(--orange-bright); }
+
+    .footer-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #141417;
+      color: #fff;
+      border: 1px solid var(--orange);
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      z-index: 100;
+      display: none;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+    }
+    .toast.show { display: block; }
+    .menu-list { display: flex; flex-direction: column; gap: 8px; }
+    .menu-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.88rem;
+    }
+    .menu-card p { color: var(--muted); font-size: 0.78rem; margin-top: 3px; }
+    .menu-price { color: var(--orange-bright); font-weight: 700; margin-top: 5px; }
+    .menu-old-price { color: var(--muted); font-weight: 400; text-decoration: line-through; margin-right: 5px; }
+    .pizza-step { display: flex; flex-direction: column; gap: 12px; }
+    .pizza-step[hidden] { display: none; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <strong>Salão • 50 Mesas</strong>
+      <span id="garcomLabel">Garçom: não definido</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" onclick="sincronizarTudo()">Atualizar</button>
+      <button class="btn btn-ghost btn-sm" onclick="abrirCardapio()">Cardápio</button>
+      <button class="btn btn-ghost btn-sm" onclick="abrirModalGarcom()">Garçom</button>
+      <button id="btnInstalar" class="btn btn-ghost btn-sm" type="button">Instalar</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <p role="status" style="color: var(--orange-bright); font-size: 0.85rem; margin-bottom: 14px;">
+      Selecione uma mesa para lançar itens. Confira a impressão na cozinha; alterações dos pedidos enviados são feitas no caixa.
+    </p>
+    <p id="previaStatusGlobal" role="status" hidden style="color: var(--orange-bright); font-size: 0.85rem; margin-bottom: 14px;"></p>
+    <div class="legend">
+      <span class="pill"><i class="dot livre"></i> Livre</span>
+      <span class="pill"><i class="dot ocupada"></i> Ocupada</span>
+    </div>
+
+    <div id="gridMesas" class="grid-mesas"></div>
+  </main>
+
+  <div id="modalInstalacao" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="instalacaoTitulo">
+    <div class="modal" style="max-width: 420px; border-radius: 16px; margin: auto;">
+      <div class="modal-header">
+        <strong id="instalacaoTitulo" style="color: var(--orange-bright);">Instalar aplicativo</strong>
+        <button id="fecharInstalacao" class="btn btn-ghost btn-sm" type="button">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <p id="instrucoesInstalacao"></p>
+        <p style="color: var(--muted);">Após instalar, abra pelo ícone na tela inicial. O aplicativo precisa de internet para acessar o caixa.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detalhes da Mesa -->
+  <div id="modalMesa" class="modal-backdrop" onclick="fecharModalBackdrop(event, 'modalMesa')">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h2 id="mesaTitulo" style="font-size: 1.15rem; color: var(--orange-bright);">Mesa --</h2>
+          <small id="mesaSubtitulo" style="color: var(--muted);"></small>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="fecharModal('modalMesa')">Fechar</button>
+      </div>
+
+      <div class="modal-body">
+        <div id="listaItensMesa" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        <div id="pedidoMesaRascunho" class="box-add"></div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="total-line">
+          <span>Total Parcial</span>
+          <span id="totalMesa">R$ 0,00</span>
+        </div>
+        <div class="footer-btns" id="acoesMesaFooter"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Identificação do Garçom -->
+  <div id="modalGarcom" class="modal-backdrop" onclick="fecharModalBackdrop(event, 'modalGarcom')">
+    <div class="modal" style="max-width: 420px; border-radius: 16px; margin: auto;">
+      <div class="modal-header">
+        <strong style="font-size: 1rem; color: var(--orange-bright);">Identificação do Garçom</strong>
+        <button class="btn btn-ghost btn-sm" onclick="fecharModal('modalGarcom')">✕</button>
+      </div>
+      <div class="modal-body">
+        <label for="selectGarcom" style="font-size: 0.85rem; color: var(--muted);">Selecione o funcionário:</label>
+        <select id="selectGarcom"></select>
+        <label for="pinGarcom" style="font-size: 0.85rem; color: var(--muted);">PIN:</label>
+        <input type="password" id="pinGarcom" inputmode="numeric" autocomplete="off" maxlength="8" />
+        <button class="btn btn-primary" onclick="salvarGarcom()">Confirmar Garçom</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalCardapio" class="modal-backdrop" onclick="fecharModalBackdrop(event, 'modalCardapio')">
+    <div class="modal">
+      <div class="modal-header">
+        <strong style="color: var(--orange-bright);">Cardápio do caixa</strong>
+        <button class="btn btn-ghost btn-sm" onclick="fecharModal('modalCardapio')">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <label for="cardapioCategoria">Categoria</label>
+        <select id="cardapioCategoria" onchange="alterarCategoriaCardapio()"></select>
+        <label for="cardapioBusca">Buscar no cardápio</label>
+        <input id="cardapioBusca" type="search" placeholder="Produto ou sabor" oninput="renderCardapio()" />
+        <p style="color: var(--muted); font-size: 0.8rem;">A busca encontra produtos em todas as categorias; em Acréscimos, busca somente acréscimos.</p>
+        <p style="color: var(--muted); font-size: 0.8rem;">Promoções seguem os dias configurados no caixa. Descontos da conta são aplicados no pagamento.</p>
+        <div id="cardapioLista" class="menu-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalPizza" class="modal-backdrop" onclick="fecharModalBackdrop(event, 'modalPizza')">
+    <div class="modal">
+      <div class="modal-header">
+        <strong id="pizzaTitulo" style="color: var(--orange-bright);"></strong>
+        <button class="btn btn-ghost btn-sm" onclick="fecharModal('modalPizza')">Fechar</button>
+      </div>
+      <div id="pizzaCorpo" class="modal-body">
+        <div id="pizzaEtapaSabores" class="pizza-step">
+          <strong>Escolha os sabores</strong>
+          <p id="pizzaLimite" style="color: var(--muted); font-size: 0.85rem;"></p>
+          <label for="pizzaBusca">Buscar sabor</label>
+          <input id="pizzaBusca" type="search" oninput="renderPizzaSabores()" placeholder="Nome ou ingrediente" />
+          <div id="pizzaSabores" class="menu-list"></div>
+        </div>
+        <div id="pizzaEtapaAdicionais" class="pizza-step" hidden>
+          <strong>Acréscimos</strong>
+          <div id="pizzaAcrescimos" class="menu-list"></div>
+          <label for="pizzaObs">Observação</label>
+          <input id="pizzaObs" maxlength="500" placeholder="Ex.: sem cebola" />
+          <div id="pizzaPreco" class="menu-price"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div id="pizzaAcoesSabores" class="pizza-step">
+          <button class="btn btn-primary" onclick="avancarPizza()">Continuar para adicionais</button>
+        </div>
+        <div id="pizzaAcoesAdicionais" class="pizza-step" hidden>
+          <button class="btn btn-ghost" onclick="voltarSaboresPizza()">Voltar aos sabores</button>
+          <button class="btn btn-primary" onclick="adicionarPizza()">Adicionar à mesa</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="menu-compartilhado.js"></script>
+  <script src="mesa-conta-compartilhada.js"></script>
+  <script src="garcom-instalacao.js"></script>
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    // Conexão exclusiva com o Supabase do projeto
+    const SUPABASE_URL = 'https://ciousuoedyezkltyfvqb.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_hts4YS3W97DfKWQQSq3XAw_zdgtNteA';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const TABELA_STATE = 'app_state';
+    const TABELA_USUARIOS = 'usuarios';
+
+    let garcomAtual = '';
+    let garcomId = '';
+    let garcomPin = '';
+    let loginPending = false;
+    let mesasLista = [];        // Array normalizado de 50 mesas
+    let mesaSelecionadaNumero = null;
+    let stateLoadSerial = 0;
+    let cardapio = null;
+    let cardapioSignature = '';
+    let cardapioDay = null;
+    let itensRascunho = [];
+    let pizzaRascunho = null;
+    let envioEmAndamento = false;
+    let previaEmAndamento = false;
+    let mesaPreviaNumero = null;
+    let mensagemPrevia = '';
+    const PENDING_REQUEST_KEY = 'gp_waiter_pending_table_order_v1';
+    let pedidoPendente = null;
+    let erroPedidoPendente = '';
+    try {
+      const saved = sessionStorage.getItem(PENDING_REQUEST_KEY);
+      if (saved) {
+        pedidoPendente = JSON.parse(saved);
+        if (!pedidoPendente?.params?.p_request_id || !Array.isArray(pedidoPendente.rascunho)) {
+          throw new Error('Dados do envio pendente inválidos.');
+        }
+        itensRascunho = pedidoPendente.rascunho;
+      }
+    } catch (error) {
+      console.error('Não foi possível recuperar o pedido pendente:', error);
+      erroPedidoPendente = 'Não foi possível recuperar um envio pendente. Não envie outro pedido nesta aba; confira no caixa.';
+    }
+
+    const fmtMoeda = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+    }
+
+    function atualizarHeaderGarcom() {
+      document.getElementById('garcomLabel').textContent = garcomAtual
+        ? `Garçom: ${garcomAtual}`
+        : 'Garçom: não definido';
+    }
+
+    window.abrirModalGarcom = () => {
+      document.getElementById('pinGarcom').value = '';
+      document.getElementById('modalGarcom').classList.add('open');
+    };
+
+    window.salvarGarcom = async () => {
+      if (loginPending) return showToast('Aguarde a verificação do funcionário.');
+      const id = document.getElementById('selectGarcom').value;
+      const input = document.getElementById('pinGarcom');
+      if (!id || !input.value) return showToast('Selecione o funcionário e informe o PIN.');
+      const pin = input.value;
+      input.value = '';
+      loginPending = true;
+      try {
+        const { data: usuario, error } = await supabase.from('usuarios')
+          .select('id,name,role,pin,active').eq('id', id).eq('active', true).maybeSingle();
+        if (error) throw error;
+        if (!usuario || !usuario.active || String(usuario.pin) !== pin) {
+          return showToast('PIN incorreto ou funcionário inativo.');
+        }
+        garcomAtual = usuario.name;
+        garcomId = String(usuario.id);
+        garcomPin = pin;
+        atualizarHeaderGarcom();
+        fecharModal('modalGarcom');
+        showToast(`Bem-vindo, ${garcomAtual}!`);
+      } catch (error) {
+        console.error('Erro ao verificar funcionário:', error);
+        showToast('Não foi possível verificar o funcionário. Confira a conexão.');
+      } finally {
+        loginPending = false;
+      }
+    };
+
+    window.fecharModal = (id) => document.getElementById(id).classList.remove('open');
+    window.fecharModalBackdrop = (e, id) => {
+      if (e.target.id === id) fecharModal(id);
+    };
+
+    async function carregarUsuarios() {
+      const select = document.getElementById('selectGarcom');
+      select.replaceChildren();
+      const { data, error } = await supabase.from(TABELA_USUARIOS)
+        .select('id,name,role').eq('active', true).order('name');
+      if (error) throw error;
+      for (const usuario of data || []) {
+        const option = document.createElement('option');
+        option.value = String(usuario.id);
+        option.textContent = `${usuario.name} (${usuario.role})`;
+        select.appendChild(option);
+      }
+      if (!data?.length) showToast('Nenhum funcionário ativo encontrado.');
+    }
+
+    function normalizarMesas(rawState) {
+      if (!Array.isArray(rawState.orders)) throw new Error('O estado do caixa não contém a lista de pedidos.');
+      return Array.from({ length: 50 }, (_, index) => {
+        const numero = index + 1;
+        const orders = rawState.orders.filter(order => order.type === 'MESA' &&
+          Number(order.mesa) === numero && !order.paid && order.status !== 'CANCELADO');
+        return {
+          numero,
+          status: orders.length ? 'ocupada' : 'livre',
+          garcom: [...new Set(orders.map(order => order.by).filter(Boolean))].join(', '),
+          total: orders.reduce((sum, order) => sum + Number(order.total || 0), 0),
+          itens: orders.flatMap(order => (order.items || []).map((item, itemIndex) => ({
+            id: `${order.id}-${itemIndex}`,
+            nome: item.name,
+            quantidade: item.qty,
+            valor_unitario: item.price,
+            detalhes: Array.isArray(item.det) ? item.det : [],
+            observacao: item.obs || '',
+            status: 'ativo',
+            garcom_nome: order.by || ''
+          })))
+        };
+      });
+    }
+
+    function normalizarCardapio(menu) {
+      if (!menu || !menu.cats || Array.isArray(menu.cats) || typeof menu.cats !== 'object' ||
+          !Object.values(menu.cats).every(Array.isArray) ||
+          !Array.isArray(menu.pt) || !Array.isArray(menu.pd) || !Array.isArray(menu.ac)) {
+        return null;
+      }
+      return {
+        ...menu,
+        promotionDays: Array.isArray(menu.promotionDays) ? menu.promotionDays : [3, 4],
+        promoPrices: menu.promoPrices && typeof menu.promoPrices === 'object' ? menu.promoPrices : {},
+        customItems: Array.isArray(menu.customItems) ? menu.customItems : []
+      };
+    }
+
+    function atualizarCardapio(menu) {
+      const signature = JSON.stringify(menu);
+      const day = new Date().getDay();
+      if (signature === cardapioSignature && day === cardapioDay) return;
+      cardapio = normalizarCardapio(menu);
+      cardapioSignature = signature;
+      cardapioDay = day;
+      const select = document.getElementById('cardapioCategoria');
+      const previous = select.value;
+      select.replaceChildren();
+      const categories = cardapio ? ['__todos__', 'Pizzas', 'Pizzas Doces', ...Object.keys(cardapio.cats), 'Acréscimos'] : [];
+      categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category === '__todos__' ? 'Todas as categorias' : category;
+        select.appendChild(option);
+      });
+      if (categories.includes(previous)) select.value = previous;
+      renderCardapio();
+    }
+
+    window.abrirCardapio = () => {
+      if (!garcomAtual) {
+        abrirModalGarcom();
+        return showToast('Identifique-se com seu PIN primeiro.');
+      }
+      renderCardapio();
+      document.getElementById('modalCardapio').classList.add('open');
+    };
+
+    window.alterarCategoriaCardapio = () => {
+      document.getElementById('cardapioBusca').value = '';
+      renderCardapio();
+    };
+
+    window.renderCardapio = () => {
+      const list = document.getElementById('cardapioLista');
+      if (!cardapio) {
+        list.textContent = 'Cardápio indisponível. Confira a sincronização com o caixa.';
+        return;
+      }
+      const category = document.getElementById('cardapioCategoria').value;
+      const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const query = normalize(document.getElementById('cardapioBusca').value.trim());
+      const matches = text => !query || normalize(text).includes(query);
+      const priceMarkup = (price, regular) => {
+        if (!Number(price)) return '<div class="menu-price">Sem preço</div>';
+        const discount = Number(price) !== Number(regular);
+        return `<div class="menu-price">${discount ? `<span class="menu-old-price">${esc(fmtMoeda(regular))}</span>` : ''}${esc(fmtMoeda(price))}${discount ? ' • PROMOÇÃO' : ''}</div>`;
+      };
+      if (category === 'Acréscimos') {
+        const cards = cardapio.ac.filter(item => matches(item[0])).map(item =>
+          `<div class="menu-card"><strong>${esc(item[0])}</strong><div class="menu-price">${Number(item[1]) ? esc(fmtMoeda(item[1])) : 'Incluso'}</div></div>`);
+        list.innerHTML = cards.join('') || '<p style="color: var(--muted);">Nenhum item encontrado.</p>';
+        return;
+      }
+      const allCategories = ['Pizzas', 'Pizzas Doces', ...Object.keys(cardapio.cats)];
+      const categories = category === '__todos__' || query ? allCategories : [category];
+      const items = window.GabryelleMenu.menuItems(cardapio).map((item, index) => ({ item, index }));
+      const sections = categories.map(name => {
+        let cards;
+        if (name === 'Pizzas' || name === 'Pizzas Doces') {
+          const sweet = name === 'Pizzas Doces';
+          const prices = sweet ? cardapio.pd : cardapio.pt;
+          const matchingFlavor = query && items.some(({ item }) =>
+            item.c === name && item.pz !== undefined && matches(`${item.n} ${item.d || ''} ${item.c}`));
+          cards = window.GabryelleMenu.SIZES.slice(1).map((size, index) => {
+            const title = `Pizza ${size}${sweet ? ' Doce' : ''}`;
+            if (query && !matchingFlavor && !matches(title)) return '';
+            const regular = prices[index + 1];
+            const price = window.GabryelleMenu.promotionPrice(cardapio, `pizza:${sweet ? 'pd' : 'pt'}:${index + 1}`, regular);
+            return `<div class="menu-card"><strong>${esc(title)}</strong>${priceMarkup(price, regular)}<button class="btn btn-sm btn-primary" type="button" onclick="abrirPizza(${index + 1}, ${sweet ? 'true' : 'false'})">Escolher sabores</button></div>`;
+          }).filter(Boolean);
+        } else {
+          cards = items.filter(({ item }) => item.c === name && item.pz === undefined && matches(`${item.n} ${item.d || ''} ${item.c}`))
+            .map(({ item, index }) => `<div class="menu-card"><strong>${esc(item.n)}</strong>${item.d ? `<p>${esc(item.d)}</p>` : ''}${priceMarkup(item.p, item.regularPrice)}<button class="btn btn-sm btn-primary" type="button" onclick="adicionarItemCardapio(${index})">Adicionar</button></div>`);
+        }
+        return cards.length ? `<strong>${esc(name)}</strong>${cards.join('')}` : '';
+      }).filter(Boolean);
+      list.innerHTML = sections.join('') || '<p style="color: var(--muted);">Nenhum item encontrado.</p>';
+    };
+
+    function montarItem(menu, draft) {
+      if (!Number.isInteger(draft.qty) || draft.qty < 1 || draft.qty > 100 || String(draft.obs || '').length > 500) {
+        throw new Error('Quantidade ou observação inválida.');
+      }
+      let item;
+      if (draft.kind === 'produto') {
+        const found = window.GabryelleMenu.menuItems(menu).find(candidate =>
+          candidate.key === draft.key && candidate.n === draft.name && candidate.c === draft.category);
+        if (!found) throw new Error(`O produto ${draft.name} mudou ou foi removido do cardápio.`);
+        item = { name: found.n, category: found.c, qty: draft.qty, price: Number(found.p), det: [], obs: draft.obs || '' };
+      } else if (draft.kind === 'pizza') {
+        const { SIZES, PZ, DOCE, promotionPrice } = window.GabryelleMenu;
+        const flavors = draft.flavors || [];
+        const max = Array.isArray(menu.mf) ? Number(menu.mf[draft.size]) : 0;
+        if (!SIZES[draft.size] || !Number.isInteger(max) || max < 1 || !flavors.length || flavors.length > max ||
+            new Set(flavors).size !== flavors.length ||
+            flavors.some(name => !PZ.some(entry => entry[0] === name) && !DOCE.some(entry => entry[0] === name))) {
+          throw new Error('Revise o tamanho e os sabores da pizza.');
+        }
+        const hasSavory = flavors.some(name => PZ.some(entry => entry[0] === name));
+        const hasSweet = flavors.some(name => DOCE.some(entry => entry[0] === name));
+        const sweet = hasSavory && hasSweet ? draft.sweet : hasSweet;
+        const savoryBase = Number(menu.pt[draft.size]);
+        const sweetBase = Number(menu.pd[draft.size]);
+        if ((hasSavory && !(savoryBase > 0)) || (hasSweet && !(sweetBase > 0))) {
+          throw new Error('O tamanho da pizza está sem preço no caixa.');
+        }
+        const savoryPrice = Number(promotionPrice(menu, `pizza:pt:${draft.size}`, savoryBase));
+        const sweetPrice = Number(promotionPrice(menu, `pizza:pd:${draft.size}`, sweetBase));
+        let price = hasSavory && hasSweet ? Math.max(savoryPrice, sweetPrice) : sweet ? sweetPrice : savoryPrice;
+        const extras = draft.extras || [];
+        for (const extra of extras) {
+          const current = menu.ac[extra.index];
+          if (!Array.isArray(current) || current[0] !== extra.name || !Number.isFinite(Number(current[1])) || Number(current[1]) < 0) {
+            throw new Error(`O acréscimo ${extra.name} mudou ou foi removido.`);
+          }
+          price += Number(current[1]);
+        }
+        item = {
+          name: `Pizza ${SIZES[draft.size]}${sweet ? ' Doce' : ''}`,
+          category: sweet ? 'Pizzas Doces' : 'Pizzas', qty: draft.qty, price,
+          det: [...flavors, ...extras.map(extra => `+ ${extra.name}`)], obs: draft.obs || ''
+        };
+      } else {
+        throw new Error('Item de pedido inválido.');
+      }
+      if (!Number.isFinite(item.price) || item.price <= 0 || item.price > 100000 ||
+          Math.abs(item.price * 100 - Math.round(item.price * 100)) > 0.000001) {
+        throw new Error(`${item.name} está sem preço válido no caixa.`);
+      }
+      item.price = Math.round(item.price * 100) / 100;
+      return item;
+    }
+
+    function podeAlterarRascunho() {
+      if (!garcomAtual || mesaSelecionadaNumero === null) {
+        showToast('Selecione uma mesa antes de adicionar itens.');
+        return false;
+      }
+      if (previaEmAndamento && mesaSelecionadaNumero === mesaPreviaNumero) {
+        showToast('Aguarde a confirmação da pré-conta desta mesa.');
+        return false;
+      }
+      if (erroPedidoPendente || pedidoPendente || envioEmAndamento) {
+        showToast(erroPedidoPendente || 'Confirme o envio pendente antes de alterar o pedido.');
+        return false;
+      }
+      return true;
+    }
+
+    window.adicionarItemCardapio = index => {
+      if (!podeAlterarRascunho() || !cardapio) return;
+      const item = window.GabryelleMenu.menuItems(cardapio)[index];
+      if (!item || !item.key) return showToast('Produto indisponível. Atualize o cardápio.');
+      const draft = { kind: 'produto', key: item.key, name: item.n, category: item.c, qty: 1, price: Number(item.p), obs: '' };
+      try {
+        montarItem(cardapio, draft);
+        itensRascunho.push(draft);
+        renderModalMesa();
+        fecharModal('modalCardapio');
+        document.getElementById('modalMesa').classList.add('open');
+        showToast(`${item.n} adicionado à mesa ${mesaSelecionadaNumero}.`);
+      } catch (error) {
+        showToast(error.message);
+      }
+    };
+
+    window.abrirPizza = (size, sweet) => {
+      if (!podeAlterarRascunho() || !cardapio) return;
+      if (!Array.isArray(cardapio.mf) || !Number.isInteger(Number(cardapio.mf[size])) || Number(cardapio.mf[size]) < 1) {
+        return showToast('Configure o limite de sabores no caixa.');
+      }
+      pizzaRascunho = { kind: 'pizza', size, sweet, flavors: [], extras: [], qty: 1, obs: '' };
+      document.getElementById('pizzaTitulo').textContent = `Pizza ${window.GabryelleMenu.SIZES[size]}`;
+      document.getElementById('pizzaBusca').value = '';
+      document.getElementById('pizzaObs').value = '';
+      mostrarEtapaPizza('sabores');
+      renderPizzaSabores();
+      renderPizzaAcrescimos();
+      document.getElementById('modalPizza').classList.add('open');
+    };
+
+    window.renderPizzaSabores = () => {
+      if (!pizzaRascunho || !cardapio) return;
+      const normalize = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      const search = normalize(document.getElementById('pizzaBusca').value.trim());
+      const { PZ, DOCE } = window.GabryelleMenu;
+      const flavors = pizzaRascunho.sweet ? [...DOCE, ...PZ] : [...PZ, ...DOCE];
+      const max = Number(cardapio.mf[pizzaRascunho.size]);
+      document.getElementById('pizzaLimite').textContent = `Escolha até ${max} sabor(es). Na pizza mista vale o maior preço.`;
+      document.getElementById('pizzaSabores').innerHTML = flavors.map((flavor, index) => ({ flavor, index }))
+        .filter(({ flavor }) => normalize(`${flavor[0]} ${flavor[1]}`).includes(search))
+        .map(({ flavor, index }) => `<label class="menu-card"><input type="checkbox" ${pizzaRascunho.flavors.includes(flavor[0]) ? 'checked' : ''} onchange="selecionarSaborPizza(${index}, this.checked)" /> <strong>${esc(flavor[0])}</strong><p>${esc(flavor[1])}</p></label>`).join('') || 'Nenhum sabor encontrado.';
+      atualizarPrecoPizza();
+    };
+
+    window.selecionarSaborPizza = (index, checked) => {
+      if (!pizzaRascunho || !cardapio) return;
+      const { PZ, DOCE } = window.GabryelleMenu;
+      const flavors = pizzaRascunho.sweet ? [...DOCE, ...PZ] : [...PZ, ...DOCE];
+      const flavor = flavors[index]?.[0];
+      if (!flavor) return;
+      pizzaRascunho.flavors = pizzaRascunho.flavors.filter(name => name !== flavor);
+      if (checked) {
+        if (pizzaRascunho.flavors.length >= Number(cardapio.mf[pizzaRascunho.size])) {
+          showToast('Limite de sabores atingido.');
+        } else {
+          pizzaRascunho.flavors.push(flavor);
+        }
+      }
+      renderPizzaSabores();
+    };
+
+    function renderPizzaAcrescimos() {
+      document.getElementById('pizzaAcrescimos').innerHTML = cardapio.ac.map((extra, index) =>
+        `<label class="menu-card"><input type="checkbox" ${pizzaRascunho.extras.some(entry => entry.index === index) ? 'checked' : ''} onchange="selecionarAcrescimoPizza(${index}, this.checked)" /> ${esc(extra[0])} ${Number(extra[1]) ? `(+ ${esc(fmtMoeda(extra[1]))})` : '(incluso)'}</label>`).join('');
+    }
+
+    window.selecionarAcrescimoPizza = (index, checked) => {
+      if (!pizzaRascunho || !cardapio?.ac[index]) return;
+      pizzaRascunho.extras = pizzaRascunho.extras.filter(extra => extra.index !== index);
+      if (checked) pizzaRascunho.extras.push({ index, name: cardapio.ac[index][0] });
+      atualizarPrecoPizza();
+    };
+
+    function atualizarPrecoPizza() {
+      const target = document.getElementById('pizzaPreco');
+      try {
+        target.textContent = `Preço: ${fmtMoeda(montarItem(cardapio, pizzaRascunho).price)}`;
+      } catch (error) {
+        target.textContent = error.message;
+      }
+    }
+
+    function mostrarEtapaPizza(etapa) {
+      const sabores = etapa === 'sabores';
+      document.getElementById('pizzaEtapaSabores').hidden = !sabores;
+      document.getElementById('pizzaAcoesSabores').hidden = !sabores;
+      document.getElementById('pizzaEtapaAdicionais').hidden = sabores;
+      document.getElementById('pizzaAcoesAdicionais').hidden = sabores;
+      document.getElementById('pizzaCorpo').scrollTop = 0;
+    }
+
+    window.avancarPizza = () => {
+      if (!pizzaRascunho || !cardapio) return;
+      try {
+        montarItem(cardapio, pizzaRascunho);
+        renderPizzaAcrescimos();
+        atualizarPrecoPizza();
+        mostrarEtapaPizza('adicionais');
+      } catch (error) {
+        showToast(error.message);
+      }
+    };
+
+    window.voltarSaboresPizza = () => {
+      if (!pizzaRascunho) return;
+      renderPizzaSabores();
+      mostrarEtapaPizza('sabores');
+    };
+
+    window.adicionarPizza = () => {
+      if (!podeAlterarRascunho() || !pizzaRascunho || !cardapio) return;
+      pizzaRascunho.obs = document.getElementById('pizzaObs').value.trim();
+      try {
+        const item = montarItem(cardapio, pizzaRascunho);
+        itensRascunho.push({ ...pizzaRascunho, price: item.price });
+        pizzaRascunho = null;
+        fecharModal('modalPizza');
+        fecharModal('modalCardapio');
+        renderModalMesa();
+        document.getElementById('modalMesa').classList.add('open');
+        showToast('Pizza adicionada ao pedido.');
+      } catch (error) {
+        showToast(error.message);
+      }
+    };
+
+    function calcularTotalMesa(mesa) {
+      return mesa.total;
+    }
+
+    async function carregarAppState() {
+      const requestSerial = ++stateLoadSerial;
+      const { data: row, error } = await supabase.from(TABELA_STATE)
+        .select('data').eq('id', 'gp_state').single();
+      if (error) throw error;
+      if (!row?.data) throw new Error('Estado compartilhado não encontrado.');
+      if (requestSerial !== stateLoadSerial) return;
+      mesasLista = normalizarMesas(row.data);
+      atualizarCardapio(row.data.menu);
+
+      renderGridMesas();
+      if (mesaSelecionadaNumero !== null) {
+        renderModalMesa();
+      }
+    }
+
+    function renderGridMesas() {
+      const grid = document.getElementById('gridMesas');
+      grid.innerHTML = mesasLista.map(m => {
+        const total = calcularTotalMesa(m);
+        const totalHtml = (m.status !== 'livre' && total > 0)
+          ? `<span class="mesa-total">${fmtMoeda(total)}</span>`
+          : '';
+
+        return `
+          <button type="button" class="mesa-card ${m.status}" onclick="selecionarMesa(${m.numero})">
+            <span class="mesa-num">${String(m.numero).padStart(2, '0')}</span>
+            <span class="mesa-status">${m.status}</span>
+            ${totalHtml}
+          </button>
+        `;
+      }).join('');
+    }
+
+    window.selecionarMesa = async (numero) => {
+      if (!garcomAtual) {
+        abrirModalGarcom();
+        showToast('Identifique-se com seu PIN primeiro.');
+        return;
+      }
+
+      if (envioEmAndamento) return showToast('Aguarde a confirmação do envio.');
+      if (pedidoPendente && pedidoPendente.params.p_table !== numero) {
+        return showToast(`Confirme primeiro o pedido pendente da mesa ${pedidoPendente.params.p_table}.`);
+      }
+      if (mesaSelecionadaNumero !== null && mesaSelecionadaNumero !== numero && itensRascunho.length &&
+          !confirm('Descartar os itens ainda não enviados desta mesa?')) return;
+      if (mesaSelecionadaNumero !== null && mesaSelecionadaNumero !== numero) {
+        itensRascunho = [];
+      }
+      const mesa = mesasLista.find(m => m.numero === numero);
+      if (!mesa) return;
+
+      mesaSelecionadaNumero = numero;
+      renderModalMesa();
+      document.getElementById('modalMesa').classList.add('open');
+    };
+
+    function renderModalMesa() {
+      const mesa = mesasLista.find(m => m.numero === mesaSelecionadaNumero);
+      if (!mesa) return;
+
+      const total = calcularTotalMesa(mesa);
+
+      document.getElementById('mesaTitulo').textContent = `Mesa ${String(mesa.numero).padStart(2, '0')}`;
+      document.getElementById('mesaSubtitulo').textContent =
+        `Status: ${mesa.status.toUpperCase()} • Garçom: ${mesa.garcom || '-'}`;
+      document.getElementById('totalMesa').textContent = fmtMoeda(total);
+
+      const listaEl = document.getElementById('listaItensMesa');
+      if (!mesa.itens || mesa.itens.length === 0) {
+        listaEl.innerHTML = `<p style="color: var(--muted); font-size: 0.88rem; text-align: center; padding: 14px;">Nenhum item lançado nesta mesa ainda.</p>`;
+      } else {
+        listaEl.innerHTML = mesa.itens.map(item => {
+          const subtotal = Number(item.quantidade) * Number(item.valor_unitario);
+          return `
+            <div class="item-card">
+              <div>
+                <div class="item-nome"><strong>${Number(item.quantidade)}x</strong> ${esc(item.nome)} — <strong>${fmtMoeda(subtotal)}</strong></div>
+                <div class="item-meta">
+                  Unit: ${fmtMoeda(item.valor_unitario)} • Por: ${esc(item.garcom_nome || '-')}
+                  ${item.detalhes.map(detalhe => ` • ${esc(detalhe)}`).join('')}
+                  ${item.observacao ? ` • Obs: ${esc(item.observacao)}` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      const footerEl = document.getElementById('acoesMesaFooter');
+      footerEl.innerHTML = `<button type="button" class="btn btn-ghost" onclick="abrirCardapio()">Adicionar itens</button>
+        <button type="button" class="btn btn-primary" onclick="enviarPedidoMesa()">${pedidoPendente ? 'Confirmar envio pendente' : 'Enviar pedido'}</button>
+        <button type="button" class="btn btn-warn" onclick="solicitarPreviaMesa()" ${previaEmAndamento ? 'disabled' : ''}>Fechar mesa / pré-conta</button>
+        <span role="status">${mesaSelecionadaNumero === mesaPreviaNumero ? esc(mensagemPrevia) : ''}</span>`;
+      const draftEl = document.getElementById('pedidoMesaRascunho');
+      const draftItems = pedidoPendente?.params?.p_items || itensRascunho.map(item => {
+        try { return montarItem(cardapio, item); } catch (error) {
+          return { ...item, det: [], price: item.price || 0, aviso: error.message };
+        }
+      });
+      const rate = Number(pedidoPendente?.serviceRate ?? cardapio?.svc ?? 10);
+      const subtotal = draftItems.reduce((sum, item) => sum + Number(item.qty) * Number(item.price || 0), 0);
+      const serviceEnabled = pedidoPendente ? pedidoPendente.params.p_service : true;
+      const serviceAmount = serviceEnabled && Number.isFinite(rate) ? Math.round(subtotal * rate) / 100 : 0;
+      draftEl.innerHTML = `<strong>Pedido ainda não confirmado</strong>
+        ${draftItems.map((item, index) => `<div class="item-card"><div><strong>${Number(item.qty)}x ${esc(item.name)}</strong> • ${esc(fmtMoeda(item.price * item.qty))}
+          ${item.det?.map(detail => `<div class="item-meta">${esc(detail)}</div>`).join('') || ''}
+          ${item.obs ? `<div class="item-meta">Obs: ${esc(item.obs)}</div>` : ''}
+          ${item.aviso ? `<div class="item-meta">${esc(item.aviso)}</div>` : ''}</div>
+          ${pedidoPendente ? '' : `<div class="item-actions"><button class="btn btn-sm" onclick="alterarQuantidadeRascunho(${index}, -1)">−</button><button class="btn btn-sm" onclick="alterarQuantidadeRascunho(${index}, 1)">+</button><button class="btn btn-sm" onclick="observarRascunho(${index})">Obs</button></div>`}</div>`).join('') || '<span style="color:var(--muted)">Nenhum item adicionado.</span>'}
+        <div>Taxa de serviço (${esc(rate)}%): ${serviceEnabled ? 'incluída na prévia; cliente decide no caixa' : 'não incluída neste envio pendente; confira no caixa'}</div>
+        <div>Subtotal: ${esc(fmtMoeda(subtotal))} • Serviço: ${esc(fmtMoeda(serviceAmount))} • Total: ${esc(fmtMoeda(subtotal + serviceAmount))}</div>
+        ${pedidoPendente ? '<p style="color:var(--orange-bright)">Envio sem confirmação: repita a confirmação para evitar pedido duplicado.</p>' : ''}
+        <p style="color:var(--muted)">Alterações de pedidos já enviados e pagamento são feitos no caixa.</p>`;
+    }
+
+    window.alterarQuantidadeRascunho = (index, delta) => {
+      if (!podeAlterarRascunho() || !itensRascunho[index]) return;
+      const item = itensRascunho[index];
+      item.qty += delta;
+      if (item.qty < 1) itensRascunho.splice(index, 1);
+      else if (item.qty > 100) { item.qty = 100; showToast('Máximo de 100 unidades por item.'); }
+      renderModalMesa();
+    };
+
+    window.observarRascunho = index => {
+      if (!podeAlterarRascunho() || !itensRascunho[index]) return;
+      const value = prompt('Observação para a cozinha:', itensRascunho[index].obs || '');
+      if (value === null) return;
+      if (value.length > 500) return showToast('A observação deve ter até 500 caracteres.');
+      itensRascunho[index].obs = value.trim();
+      renderModalMesa();
+    };
+
+    const agentesImpressao = new Map();
+    let canalImpressaoAtivo = false;
+    const canalImpressao = supabase.channel('print-agent-presence', { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'status' }, message => {
+        const status = message.payload;
+        if (typeof status?.sourceId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(status.sourceId) ||
+            typeof status.connected !== 'boolean' || !Number.isFinite(status.sentAt)) return;
+        if (status.connected) agentesImpressao.set(status.sourceId, Date.now());
+        else agentesImpressao.delete(status.sourceId);
+      })
+      .subscribe(status => {
+        canalImpressaoAtivo = status === 'SUBSCRIBED';
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('Não foi possível verificar a impressora do caixa em tempo real.');
+        }
+      });
+
+    function agenteImpressaoDisponivel() {
+      const limite = Date.now() - 15000;
+      for (const [id, visto] of agentesImpressao) {
+        if (visto < limite) agentesImpressao.delete(id);
+        else return id;
+      }
+      return null;
+    }
+
+    async function chamarPrevia(action, credentials, extra) {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/order-bridge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+        body: JSON.stringify({ action, ...credentials, ...extra })
+      });
+      let result;
+      try {
+        result = await response.json();
+      } catch (error) {
+        throw new Error('Resposta inválida do servidor de impressão.');
+      }
+      if (!response.ok) {
+        const error = new Error(response.status === 401
+          ? 'Acesso não autorizado. Confira o PIN do funcionário no caixa.'
+          : result.error || `Falha no servidor (${response.status}).`);
+        error.solicitacaoRecusada = response.status >= 400 && response.status < 500;
+        throw error;
+      }
+      return result;
+    }
+
+    function atualizarMensagemPrevia(message) {
+      mensagemPrevia = message;
+      const status = document.getElementById('previaStatusGlobal');
+      status.textContent = `Mesa ${mesaPreviaNumero}: ${message}`;
+      status.hidden = false;
+      if (mesaSelecionadaNumero === mesaPreviaNumero) renderModalMesa();
+    }
+
+    window.solicitarPreviaMesa = async () => {
+      if (previaEmAndamento) return showToast(`Aguarde a pré-conta da mesa ${mesaPreviaNumero}.`);
+      if (!garcomAtual || !garcomId || !garcomPin || mesaSelecionadaNumero === null) {
+        return showToast('Identifique-se e selecione uma mesa.');
+      }
+      if (envioEmAndamento || pedidoPendente || erroPedidoPendente || itensRascunho.length) {
+        return showToast('Confirme ou remova os itens ainda não enviados antes de solicitar a pré-conta.');
+      }
+      const numero = mesaSelecionadaNumero;
+      const atendente = garcomAtual;
+      const credentials = { userId: garcomId, pin: garcomPin };
+      previaEmAndamento = true;
+      mesaPreviaNumero = numero;
+      fecharModal('modalMesa');
+      mesaSelecionadaNumero = null;
+      atualizarMensagemPrevia('Procurando a impressora do caixa...');
+      let solicitacaoIniciada = false;
+      let jobCriado = false;
+      try {
+        let targetId = agenteImpressaoDisponivel();
+        let solicitouStatus = false;
+        for (let attempt = 0; attempt < 16 && !targetId; attempt++) {
+          if (canalImpressaoAtivo && !solicitouStatus) {
+            solicitouStatus = true;
+            const sent = await canalImpressao.send({ type: 'broadcast', event: 'status-request', payload: {} });
+            if (sent !== 'ok') console.warn('Não foi possível solicitar o status da impressora:', sent);
+          }
+          await new Promise(resolve => setTimeout(resolve, 500));
+          targetId = agenteImpressaoDisponivel();
+        }
+        if (!targetId) {
+          atualizarMensagemPrevia('Pré-conta não impressa: mantenha o caixa e o agente de impressão abertos.');
+          return;
+        }
+        const { data: row, error } = await supabase.from(TABELA_STATE).select('data').eq('id', 'gp_state').single();
+        if (error) throw error;
+        if (!Array.isArray(row?.data?.orders)) throw new Error('Não foi possível consultar os pedidos da mesa.');
+        const orders = row.data.orders.filter(order => order.type === 'MESA' &&
+          Number(order.mesa) === numero && !order.paid && order.status !== 'CANCELADO');
+        if (!orders.length) {
+          atualizarMensagemPrevia('Esta mesa não possui pedidos em aberto. Atualize as mesas.');
+          return;
+        }
+        const bill = { ...window.GabryelleMesa.createMesaBill(numero, orders, null, atendente), waiterPreview: true };
+        atualizarMensagemPrevia('Solicitando a impressão da pré-conta...');
+        solicitacaoIniciada = true;
+        const { jobId } = await chamarPrevia('table_preview_create', credentials, { targetId, bill });
+        if (!jobId) throw new Error('O servidor não confirmou a solicitação.');
+        jobCriado = true;
+        if (canalImpressaoAtivo) {
+          try {
+            const sent = await canalImpressao.send({ type: 'broadcast', event: 'table-preview', payload: { targetId } });
+            if (sent !== 'ok') console.warn('Aviso de pré-conta não confirmado:', sent);
+          } catch (error) {
+            console.warn('Não foi possível avisar o caixa; a verificação periódica continuará ativa:', error);
+          }
+        }
+        atualizarMensagemPrevia('Aguardando confirmação da impressora...');
+        const deadline = Date.now() + 45000;
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const { status } = await chamarPrevia('table_preview_status', credentials, { targetId, jobId });
+          if (status === 'printed') {
+            atualizarMensagemPrevia('Pré-conta enviada à impressora. Confira a via; o cliente informa o pagamento e a taxa no caixa.');
+            return;
+          }
+          if (status === 'failed') {
+            atualizarMensagemPrevia('Pré-conta não impressa. Confira a impressora antes de tentar novamente.');
+            return;
+          }
+          if (status !== 'pending' && status !== 'printing') throw new Error('Status de impressão inválido.');
+        }
+        atualizarMensagemPrevia('Impressão não confirmada. Confira a impressora antes de tentar novamente.');
+      } catch (error) {
+        console.error('Não foi possível solicitar a pré-conta:', error);
+        atualizarMensagemPrevia(solicitacaoIniciada && !(error.solicitacaoRecusada && !jobCriado)
+          ? 'Impressão não confirmada. Confira a impressora antes de tentar novamente.'
+          : `Não foi possível solicitar a pré-conta: ${error.message}`);
+      } finally {
+        previaEmAndamento = false;
+        showToast(`Mesa ${numero}: ${mensagemPrevia}`);
+        if (mesaSelecionadaNumero !== null) renderModalMesa();
+      }
+    };
+
+    function novoIdentificadorPedido() {
+      if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+      if (!window.crypto?.getRandomValues) throw new Error('Este dispositivo não oferece identificação segura para o pedido.');
+      const bytes = window.crypto.getRandomValues(new Uint8Array(16));
+      bytes[6] = (bytes[6] & 15) | 64;
+      bytes[8] = (bytes[8] & 63) | 128;
+      const hex = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+
+    window.enviarPedidoMesa = async () => {
+      if (envioEmAndamento) return;
+      if (previaEmAndamento && mesaSelecionadaNumero === mesaPreviaNumero) {
+        return showToast('Aguarde a confirmação da pré-conta desta mesa.');
+      }
+      if (!garcomAtual || !garcomId || !garcomPin) return showToast('Identifique-se com o PIN antes de enviar.');
+      if (erroPedidoPendente) return showToast(erroPedidoPendente);
+      envioEmAndamento = true;
+      try {
+        if (pedidoPendente && pedidoPendente.params.p_employee_id !== garcomId) {
+          return showToast('Identifique-se com o funcionário que iniciou o envio pendente.');
+        }
+        if (!pedidoPendente) {
+          if (!itensRascunho.length) return showToast('Adicione itens antes de enviar.');
+          const { data: row, error } = await supabase.from(TABELA_STATE).select('data').eq('id', 'gp_state').single();
+          if (error) throw error;
+          if (!Number.isSafeInteger(row?.data?._revision)) {
+            throw new Error('A proteção de sincronização ainda não foi instalada no Supabase.');
+          }
+          const menu = normalizarCardapio(row.data.menu);
+          if (!menu) throw new Error('Cardápio do caixa indisponível.');
+          const items = itensRascunho.map(draft => montarItem(menu, draft));
+          const serviceRate = Number(menu.svc ?? 10);
+          if (!Number.isFinite(serviceRate) || serviceRate < 0 || serviceRate > 100) throw new Error('Taxa de serviço inválida no caixa.');
+          const changes = items.map((item, index) => ({ item, previous: itensRascunho[index].price }))
+            .filter(({ item, previous }) => item.price !== previous);
+          const oldRate = Number(cardapio?.svc ?? 10);
+          const messages = changes.map(({ item, previous }) => `${item.name}: ${fmtMoeda(previous)} → ${fmtMoeda(item.price)}`);
+          if (oldRate !== serviceRate) messages.push(`Serviço: ${oldRate}% → ${serviceRate}%`);
+          if (messages.length && !confirm(`Os valores mudaram:\n${messages.join('\n')}\n\nEnviar com os novos valores?`)) return;
+          const params = {
+            p_request_id: novoIdentificadorPedido(), p_revision: row.data._revision,
+            p_employee_id: garcomId, p_table: mesaSelecionadaNumero, p_items: items,
+            p_service: true
+          };
+          const pending = { params, rascunho: itensRascunho, serviceRate };
+          sessionStorage.setItem(PENDING_REQUEST_KEY, JSON.stringify(pending));
+          pedidoPendente = pending;
+        }
+        const { data: order, error } = await supabase.rpc('submit_table_order', { ...pedidoPendente.params, p_pin: garcomPin });
+        if (error) {
+          if (['40001', '22023', '22P02'].includes(error.code)) {
+            sessionStorage.removeItem(PENDING_REQUEST_KEY);
+            pedidoPendente = null;
+            await carregarAppState();
+          }
+          throw error;
+        }
+        if (!order?.id) throw new Error('O banco não confirmou o número do pedido.');
+        sessionStorage.removeItem(PENDING_REQUEST_KEY);
+        pedidoPendente = null;
+        itensRascunho = [];
+        fecharModal('modalMesa');
+        mesaSelecionadaNumero = null;
+        try {
+          await carregarAppState();
+          showToast(`Pedido #${order.id} lançado na mesa ${order.mesa}. Confira a impressão na cozinha.`);
+        } catch (error) {
+          console.error('Pedido confirmado, mas a atualização da tela falhou:', error);
+          showToast(`Pedido #${order.id} confirmado. Atualize a tela para consultar a mesa.`);
+        }
+      } catch (error) {
+        console.error('Não foi possível confirmar o pedido:', error);
+        showToast(pedidoPendente
+          ? 'Envio não confirmado. Repita a confirmação deste pedido e confira no caixa.'
+          : `Pedido não enviado: ${error.message}`);
+        if (mesaSelecionadaNumero !== null) renderModalMesa();
+      } finally {
+        envioEmAndamento = false;
+      }
+    };
+
+    window.sincronizarTudo = async () => {
+      try {
+        await Promise.all([carregarUsuarios(), carregarAppState()]);
+        showToast('Mesas atualizadas.');
+      } catch (error) {
+        console.error('Não foi possível atualizar as mesas ou os funcionários:', error);
+        showToast('Não foi possível atualizar. Confira a conexão e tente novamente.');
+      }
+    };
+
+    function reportarErroRealtime(error) {
+      console.error('Não foi possível atualizar os dados:', error);
+      showToast('Não foi possível atualizar. Confira a conexão e tente novamente.');
+    }
+
+    supabase
+      .channel('pizzaria-app-state-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: TABELA_STATE }, () => {
+        carregarAppState().catch(reportarErroRealtime);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: TABELA_USUARIOS }, () => {
+        carregarUsuarios().catch(reportarErroRealtime);
+      })
+      .subscribe(status => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          showToast('Atualização automática indisponível. Use o botão Atualizar.');
+        }
+      });
+
+    atualizarHeaderGarcom();
+    await sincronizarTudo();
+    if (!garcomAtual) abrirModalGarcom();
+    setInterval(() => carregarAppState().catch(reportarErroRealtime), 5000);
+  </script>
+</body>
+</html>

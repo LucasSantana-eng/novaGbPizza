@@ -103,7 +103,7 @@ test('cash report sums fees and delivery counts per driver without affecting sal
     assert.deepEqual(JSON.parse(JSON.stringify(summarize({ movs: [] }).deliveryDrivers)), []);
 });
 
-test('delivery cannot be paid before dispatch and requires confirmation after dispatch', () => {
+test('delivery cannot be paid before dispatch and requires confirmation after dispatch', async () => {
     const orders = [
         { id: 1, type: 'DELIVERY', status: 'PENDENTE', total: 17, items: [] },
         { id: 2, type: 'BALCAO', status: 'PENDENTE', total: 10, items: [] }
@@ -111,6 +111,9 @@ test('delivery cannot be paid before dispatch and requires confirmation after di
     const context = {
         S: { orders, caixa: { movs: [] } },
         orderCancellationPending: false,
+        paymentSaving: false,
+        supabaseClient: null,
+        save: async () => true,
         pendingPaymentTarget: { mesaNumber: null, orderIds: ['1', '2'] },
         caixaAberto: () => true,
         isOrderOpen: order => !order.paid,
@@ -123,20 +126,40 @@ test('delivery cannot be paid before dispatch and requires confirmation after di
         confirm: () => true
     };
     const confirmPayment = extract('        function confirmOrderPayment(', '        function cancelOrder(', 'confirmOrderPayment', context);
-    confirmPayment();
+    await confirmPayment();
     assert.equal(orders[0].paid, undefined);
     assert.equal(context.S.caixa.movs.length, 0);
     orders[0].status = 'PRONTO';
     context.confirm = () => false;
-    confirmPayment();
+    await confirmPayment();
     assert.equal(orders[0].paid, undefined);
     assert.equal(context.S.caixa.movs.length, 0);
     context.confirm = () => true;
-    confirmPayment();
+    await confirmPayment();
     assert.equal(orders[0].paid, true);
     assert.equal(orders[0].status, 'PRONTO');
     assert.equal(orders[1].status, 'PRONTO');
     assert.equal(context.S.caixa.movs.length, 2);
+});
+
+test('payment is not reported as confirmed when shared persistence fails', async () => {
+    const orders = [{ id: 1, type: 'BALCAO', status: 'PENDENTE', total: 10, items: [] }];
+    const messages = [];
+    let closed = false;
+    const context = {
+        S: { orders, caixa: { movs: [] } }, paymentSaving: false, supabaseClient: null,
+        orderCancellationPending: false,
+        pendingPaymentTarget: { mesaNumber: null, orderIds: ['1'] },
+        caixaAberto: () => true, isOrderOpen: order => !order.paid,
+        readPaymentDraft: () => ({ result: { payments: [{ method: 'PIX', amountCents: 1000 }], remainingCents: 0, changeCents: 0 } }),
+        where: () => 'Balcão', money: String, renderAll() {}, save: async () => false,
+        closePaymentModal() { closed = true; }, toast: message => messages.push(message)
+    };
+    const confirmPayment = extract('        function confirmOrderPayment(', '        function cancelOrder(', 'confirmOrderPayment', context);
+    await confirmPayment();
+    assert.equal(closed, false);
+    assert.ok(messages.some(message => /não foi confirmado/.test(message)));
+    assert.ok(messages.every(message => !/Pedido recebido/.test(message)));
 });
 
 test('clearing order history retains paid deliveries still awaiting dispatch', () => {

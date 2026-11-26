@@ -1,0 +1,25 @@
+{
+  "id": "./gar%C3%A7on.html",
+  "name": "Gabryelle - Garçom",
+  "short_name": "Garçom",
+  "start_url": "./gar%C3%A7on.html",
+  "scope": "./gar%C3%A7on.html",
+  "display": "standalone",
+  "background_color": "#0b0b0c",
+  "theme_color": "#0b0b0c",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "assets/garcom-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/garcom-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

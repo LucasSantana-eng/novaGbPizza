@@ -175,6 +175,7 @@ test('online pickup remains identified as pickup when imported into the POS', as
         KEY: 'state',
         localStorage: { setItem() {} },
         supabaseClient: { from: () => ({ upsert: async () => ({ error: null }) }) },
+        save: async () => true,
         sharedStateSaveCount: 0,
         shouldDelegateAcceptedOnlinePrint: () => false,
         formatBrazilPhone: value => value || '',
@@ -195,21 +196,27 @@ test('online pickup remains identified as pickup when imported into the POS', as
     assert.equal(imported.serviceType, 'RETIRADA');
 });
 
-test('accepting an online order starts local printing before synchronization completes', async () => {
+test('accepting an online order starts printing when the import confirms readiness', async () => {
     let resolveImport;
-    let markPrintStarted;
-    const printStarted = new Promise(resolve => { markPrintStarted = resolve; });
+    let markImportStarted;
+    let printStarted = false;
+    const importStarted = new Promise(resolve => { markImportStarted = resolve; });
     const context = {
         onlinePendingOrderIds: new Set(['online-1']),
         canHandleOnlineOrders: () => true,
         callOrderBridge: async () => ({ order: { id: 'online-1' } }),
         syncOnlineOrderAlert() {},
         importAcceptedOnlineOrder: (_order, onOrderReady) => {
-            onOrderReady({ id: 72503, printRequested: false });
-            return new Promise(resolve => { resolveImport = () => resolve({ id: 72503, printRequested: false }); });
+            return new Promise(resolve => {
+                resolveImport = () => {
+                    onOrderReady({ id: 72503, printRequested: false });
+                    resolve({ id: 72503, printRequested: false });
+                };
+                markImportStarted();
+            });
         },
         printBothThermal: () => {
-            markPrintStarted();
+            printStarted = true;
             return Promise.resolve(true);
         },
         toast() {},
@@ -223,27 +230,24 @@ test('accepting an online order starts local printing before synchronization com
     );
 
     const acceptance = acceptOnlineOrder('online-1');
-    await printStarted;
+    await importStarted;
+    assert.equal(printStarted, false);
     assert.equal(typeof resolveImport, 'function');
     resolveImport();
     await acceptance;
+    assert.equal(printStarted, true);
 });
 
-test('online order printing can start after local save while network sync is pending', async () => {
-    let resolveUpsert;
+test('online order printing waits for shared persistence confirmation', async () => {
+    let resolveSave;
     let orderReady = false;
     let orderMarkedImported = false;
     const context = {
         S: { orders: [{ id: 72504, onlineOrderId: 'online-2' }] },
         KEY: 'state',
         localStorage: { setItem() {} },
-        supabaseClient: {
-            from: () => ({
-                upsert: () => new Promise(resolve => { resolveUpsert = resolve; })
-            })
-        },
-        sharedStateSaveCount: 0,
-        sharedStateUpdatedAt: '',
+        supabaseClient: {},
+        save: () => new Promise(resolve => { resolveSave = resolve; }),
         callOrderBridge: async action => {
             assert.equal(action, 'staff_imported');
             orderMarkedImported = true;
@@ -260,13 +264,13 @@ test('online order printing can start after local save while network sync is pen
         { id: 'online-2', payload: {} },
         () => { orderReady = true; }
     );
-    assert.equal(orderReady, true);
+    assert.equal(orderReady, false);
     assert.equal(orderMarkedImported, false);
-    resolveUpsert({ error: null });
+    resolveSave(true);
     await importing;
 
+    assert.equal(orderReady, true);
     assert.equal(orderMarkedImported, true);
-    assert.equal(context.sharedStateSaveCount, 0);
 });
 
 test('table preview requested remotely is confirmed only after the printer reports success', async () => {
@@ -328,6 +332,90 @@ test('cashier processes one remote preview and reports printer failure', async (
     assert.equal(calls[1][0], 'table_preview_result');
     assert.equal(calls[1][1].printed, false);
     assert.equal(context.tablePreviewWorkerBusy, false);
+});
+
+test('cashier reuses a printed waiter preview only while the table remains unchanged', async () => {
+    const shared = require('../mesa-conta-compartilhada.js');
+    const orders = [
+        { id: 1, type: 'MESA', mesa: 2, paid: false, status: 'PENDENTE', items: [{ name: 'Pizza', qty: 1, price: 50, det: [] }], sub: 50, svc: 5, total: 55 }
+    ];
+    const bill = { ...shared.createMesaBill(2, orders, null, 'Garçom'), waiterPreview: true };
+    const previews = new Map();
+    const calls = [];
+    const messages = [];
+    const elements = new Map();
+    const context = {
+        window: { GabryelleMesa: shared }, printedWaiterPreviews: previews,
+        tablePreviewWorkerBusy: false, lastTablePreviewWorkerError: '',
+        currentUser: { id: 1, name: 'Caixa' }, isPrintAgentConnected: () => true,
+        PRINT_AGENT_PRESENCE_SOURCE_ID: 'caixa-1',
+        callOrderBridge: async action => action === 'table_preview_claim' ? { job: { id: 'job-1', bill } } : {},
+        printThermal: async () => true, toast: message => messages.push(message), console,
+        isOrderOpen: order => !order.paid && order.status !== 'CANCELADO',
+        pendingPaymentTarget: null,
+        createMesaBill: (number, entries) => shared.createMesaBill(number, entries, null, 'Caixa'),
+        printTablePreview: value => calls.push(value),
+        money: String, PAYS: [], addPaymentLine() {}, updatePaymentPreview() {},
+        $: id => {
+            if (!elements.has(id)) elements.set(id, { classList: { toggle() {}, add() {}, remove() {} }, value: '', textContent: '', innerHTML: '', checked: false });
+            return elements.get(id);
+        }
+    };
+    const processJob = extractFunction(
+        '        async function processTablePreviewPrintJob()',
+        '        async function printTablePreview(',
+        'processTablePreviewPrintJob',
+        context
+    );
+    const openPayment = extractFunction(
+        '        function openPaymentModal(',
+        '        function addPaymentLine(',
+        'openPaymentModal',
+        context
+    );
+    await processJob();
+    assert.match(messages.at(-1), /mesa 2.*pagamento/);
+    openPayment(orders, 2);
+    assert.equal(calls.length, 0);
+    await processJob();
+    orders[0].items[0].qty = 2;
+    orders[0].sub = 100;
+    orders[0].svc = 10;
+    orders[0].total = 110;
+    openPayment(orders, 2);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].total, 110);
+    const adjustment = shared.createMesaBill(2, orders, { removeService: true, discounts: [0], totalCents: 10000 });
+    assert.equal(adjustment.svc, 0);
+    assert.equal(adjustment.total, 100);
+});
+
+test('opening table payment refreshes shared orders and refuses an unconfirmed state', async () => {
+    let syncOk = false;
+    let opened = null;
+    const messages = [];
+    const orders = [{ id: 8, type: 'MESA', total: 55 }];
+    const context = {
+        supabaseClient: {},
+        syncSharedState: async () => syncOk,
+        caixaAberto: () => true,
+        mesaOrders: () => orders,
+        openPaymentModal: (...args) => { opened = args; },
+        toast: message => messages.push(message)
+    };
+    const closeTable = extractFunction(
+        '        async function fecharMesa(',
+        '        // ---------- Caixa ----------',
+        'fecharMesa',
+        context
+    );
+    await closeTable(2);
+    assert.equal(opened, null);
+    assert.match(messages[0], /Não foi possível atualizar/);
+    syncOk = true;
+    await closeTable(2);
+    assert.equal(opened[0], orders);
+    assert.equal(opened[1], 2);
 });
 
 test('table preview without a connected printer is reported instead of pretending success', async () => {
@@ -394,9 +482,45 @@ test('table and delivery order numbers are prominent on their receipts', async (
     const adjusted = await thermalMarkup('caixa', {
         ...tableOrder, accountPreview: true, removedService: 3, discount: 5, total: 25
     });
+
     assert.match(adjusted, /Serviço removido/);
     assert.match(adjusted, /Desconto/);
     assert.match(adjusted, /TOTAL DA CONTA<\/span><span>25<\/span>/);
+    const optionalService = await thermalMarkup('caixa', {
+        ...tableOrder, accountPreview: true, sub: 30, svc: 3, total: 33
+    });
+    assert.match(optionalService, /Serviço \(opcional\)<\/span><span>3<\/span>/);
+    assert.match(optionalService, /Total sem serviço<\/span><span>30<\/span>/);
+    assert.match(optionalService, /Serviço opcional: informe sua escolha no caixa/);
+    assert.match(optionalService, /1x Pizza<\/span><span>30<\/span>/);
+});
+
+test('delivery change receipt clearly distinguishes removed and added items', async () => {
+    const context = {
+        thermalBrandMarkup: async () => '', where: () => 'Delivery',
+        esc: value => String(value), money: String, S: { menu: { ac: [] } },
+        qzSettings: { layoutDensity: 'compact', options: {} }, tkEnd: '', window: {}
+    };
+    const thermalMarkup = extractFunction(
+        '        async function thermalMarkup(',
+        '        async function printThermal(',
+        'thermalMarkup',
+        context
+    );
+    const markup = await thermalMarkup('kitchen', {
+        id: 8, type: 'DELIVERY', at: Date.now(),
+        items: [
+            { name: 'Pizza Média', qty: 1, det: ['Queijo'], editAction: 'REMOVER / CANCELAR' },
+            { name: 'Pizza Grande', qty: 1, det: ['Queijo'], editAction: 'ADICIONAR' }
+        ],
+        editNotice: { at: Date.now(), by: 'Caixa', before: { end: 'Rua 1' }, after: { end: 'Rua 2' } }
+    });
+    assert.match(markup, /ALTERAÇÃO DE PEDIDO/);
+    assert.match(markup, /PEDIDO: #8/);
+    assert.match(markup, /REMOVER \/ CANCELAR[\s\S]*Pizza Média/);
+    assert.match(markup, /ADICIONAR[\s\S]*Pizza Grande/);
+    assert.match(markup, /Endereço: Rua 2/);
+    assert.match(markup, /NÃO REFAZER ITENS SEM ALTERAÇÃO/);
 });
 
 test('table adjustments remove service and distribute discounts in cents across orders', () => {
@@ -416,7 +540,7 @@ test('table adjustments remove service and distribute discounts in cents across 
     assert.equal(calculate(orders, '70', true).totalCents, 0);
 });
 
-test('closing a table persists adjustments and payment allocations including a fully discounted order', () => {
+test('closing a table persists adjustments and payment allocations including a fully discounted order', async () => {
     const orders = [
         { id: 1, type: 'MESA', mesa: 2, total: 55, svc: 5, sub: 50, items: [] },
         { id: 2, type: 'MESA', mesa: 2, total: 22, svc: 2, sub: 20, items: [] }
@@ -425,6 +549,9 @@ test('closing a table persists adjustments and payment allocations including a f
         S: { orders, caixa: { movs: [] } },
         PAYS: ['Dinheiro', 'PIX'],
         orderCancellationPending: false,
+        paymentSaving: false,
+        supabaseClient: null,
+        save: async () => true,
         pendingPaymentTarget: { mesaNumber: 2, orderIds: ['1', '2'] },
         caixaAberto: () => true,
         mesaOrders: () => orders,
@@ -449,7 +576,7 @@ test('closing a table persists adjustments and payment allocations including a f
     extractFunction('        function calculatePaymentAmounts(', '        function readPaymentDraft(', 'calculatePaymentAmounts', context);
     extractFunction('        function readPaymentDraft(', '        function updateTablePaymentAdjustments(', 'readPaymentDraft', context);
     const confirm = extractFunction('        function confirmOrderPayment(', '        function cancelOrder(', 'confirmOrderPayment', context);
-    confirm();
+    await confirm();
     assert.equal(orders[0].total, 0);
     assert.equal(orders[0].discount, 50);
     assert.equal(orders[0].removedService, 5);
@@ -459,12 +586,15 @@ test('closing a table persists adjustments and payment allocations including a f
     assert.equal(context.S.caixa.movs.length, 2);
 });
 
-test('a table can be fully discounted and closed without a payment', () => {
+test('a table can be fully discounted and closed without a payment', async () => {
     const orders = [{ id: 1, type: 'MESA', mesa: 2, total: 22, svc: 2, items: [] }];
     const context = {
         S: { orders, caixa: { movs: [] } },
         PAYS: ['Dinheiro'],
         orderCancellationPending: false,
+        paymentSaving: false,
+        supabaseClient: null,
+        save: async () => true,
         pendingPaymentTarget: { mesaNumber: 2, orderIds: ['1'] },
         caixaAberto: () => true,
         mesaOrders: () => orders,
@@ -489,7 +619,7 @@ test('a table can be fully discounted and closed without a payment', () => {
     extractFunction('        function calculatePaymentAmounts(', '        function readPaymentDraft(', 'calculatePaymentAmounts', context);
     extractFunction('        function readPaymentDraft(', '        function updateTablePaymentAdjustments(', 'readPaymentDraft', context);
     const confirm = extractFunction('        function confirmOrderPayment(', '        function cancelOrder(', 'confirmOrderPayment', context);
-    confirm();
+    await confirm();
     assert.equal(orders[0].paid, true);
     assert.equal(orders[0].total, 0);
     assert.equal(orders[0].discount, 20);

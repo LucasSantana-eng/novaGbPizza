@@ -396,11 +396,6 @@
             <!-- MÓDULO 3: NOVO PEDIDO (CARDÁPIO + CARRINHO) -->
             <section id="tab-novo-pedido" class="tab-content hidden space-y-4">
                 <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
-                    <div class="xl:col-span-2 space-y-3">
-                        <input id="menu-search" oninput="renderMenu()" placeholder="Buscar no cardápio (ex: calabresa, skol, lasanha)..." class="w-full bg-dark-bg border border-dark-border rounded-lg p-2 text-xs text-gray-200 focus:outline-none focus:border-gold-500 !p-3">
-                        <div id="menu-cats" class="flex gap-2 overflow-x-auto pb-1"></div>
-                        <div id="menu-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
-                    </div>
                     <div class="bg-dark-card rounded-xl border border-dark-border p-4 space-y-3 h-fit xl:sticky xl:top-0">
                         <h3 class="font-bold text-sm text-gold-500 tracking-wide">PEDIDO ATUAL</h3>
                         <div class="grid grid-cols-2 gap-2">
@@ -445,6 +440,11 @@
                         <p id="o-mesa-payment-note" class="hidden text-[11px] text-gray-400">A mesa continuará aberta. O pagamento será confirmado ao fechar a conta.</p>
                         <label class="flex items-center gap-2 text-xs text-gray-400"><input id="o-print" type="checkbox" checked> Imprimir comanda (cozinha e caixa)</label>
                         <button onclick="createOrder()" class="w-full bg-gold-500 hover:bg-gold-600 text-black font-bold py-2.5 rounded-lg text-xs"><span id="o-submit-label">FINALIZAR PEDIDO</span></button>
+                    </div>
+                    <div class="xl:order-first xl:col-span-2 space-y-3">
+                        <input id="menu-search" oninput="renderMenu()" placeholder="Buscar no cardápio (ex: calabresa, skol, lasanha)..." class="w-full bg-dark-bg border border-dark-border rounded-lg p-2 text-xs text-gray-200 focus:outline-none focus:border-gold-500 !p-3">
+                        <div id="menu-cats" class="flex gap-2 overflow-x-auto pb-1"></div>
+                        <div id="menu-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
                     </div>
                 </div>
                 <details class="bg-dark-card p-4 rounded-xl border border-dark-border">
@@ -808,6 +808,46 @@
         </div>
     </div>
 
+    <div id="delivery-edit-modal" class="no-print fixed inset-0 z-50 bg-black/80 hidden items-center justify-center p-4">
+        <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div class="p-4 border-b border-dark-border flex justify-between"><h3 id="delivery-edit-title" class="font-bold text-white"></h3><button onclick="closeDeliveryEdit()" class="text-gray-400">✕</button></div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs">
+                <p class="text-amber-400">A comanda de alteração será enviada pelo agente de impressão deste dispositivo. Se não for confirmada, reimprima no computador da impressora e avise a cozinha. Avise também o cliente e o entregador.</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="text-gray-400">Cliente<input id="delivery-edit-cli" class="mt-1 w-full bg-dark-bg border border-dark-border rounded p-2 text-white"></label>
+                    <label class="text-gray-400">Telefone<input id="delivery-edit-tel" class="mt-1 w-full bg-dark-bg border border-dark-border rounded p-2 text-white"></label>
+                    <label class="text-gray-400">Endereço<input id="delivery-edit-end" class="mt-1 w-full bg-dark-bg border border-dark-border rounded p-2 text-white"></label>
+                    <label class="text-gray-400">Bairro<input id="delivery-edit-bairro" class="mt-1 w-full bg-dark-bg border border-dark-border rounded p-2 text-white"></label>
+                    <label class="text-gray-400">Taxa de entrega (R$)<input id="delivery-edit-taxa" type="number" min="0" step="0.01" class="mt-1 w-full bg-dark-bg border border-dark-border rounded p-2 text-white"></label>
+                    <label class="text-gray-400">Troco para (vazio = sem troco)<input id="delivery-edit-change" type="number" min="0" step="0.01" class="mt-1 w-full bg-dark-bg border border-dark-border rounded p-2 text-white"></label>
+                </div>
+                <div id="delivery-edit-items" class="space-y-2"></div>
+                <button type="button" onclick="deliveryEditPizza(-1)" class="border border-dark-border rounded px-3 py-2 text-gold-400">Adicionar pizza</button>
+                <div class="space-y-2 border-t border-dark-border pt-3">
+                    <h4 class="font-bold text-white">Adicionar outros itens</h4>
+                    <p class="text-gray-400">Escolha uma categoria para selecionar os produtos.</p>
+                    <div id="delivery-edit-menu" class="flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-dark-border flex justify-end gap-2">
+                <button onclick="closeDeliveryEdit()" class="border border-dark-border rounded px-4 py-2 text-gray-300">Cancelar</button>
+                <button onclick="saveDeliveryEdit()" class="bg-gold-500 rounded px-4 py-2 font-bold text-black">Salvar alterações</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="delivery-menu-modal" class="no-print fixed inset-0 z-50 bg-black/80 hidden items-center justify-center p-4">
+        <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+            <div class="p-4 border-b border-dark-border flex justify-between items-center"><h3 id="delivery-menu-title" class="font-bold text-white"></h3><button type="button" onclick="closeDeliveryMenu()" aria-label="Fechar seleção" class="text-gray-400 hover:text-white">✕</button></div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs">
+                <input id="delivery-menu-search" type="search" oninput="filterDeliveryMenuItems()" aria-label="Filtrar produtos" placeholder="Digite para filtrar produtos..." class="w-full bg-dark-bg border border-dark-border rounded-lg p-2.5 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-gold-500">
+                <div id="delivery-menu-items" class="space-y-1"></div>
+                <p id="delivery-menu-empty" class="hidden p-3 text-center text-xs text-gray-400">Nenhum produto encontrado.</p>
+            </div>
+            <div class="p-4 border-t border-dark-border flex items-center justify-end"><button type="button" onclick="deliveryEditAddItems()" class="bg-gold-500 hover:bg-gold-600 text-black text-xs font-bold px-5 py-2.5 rounded-lg">ADICIONAR AO PEDIDO</button></div>
+        </div>
+    </div>
+
     <!-- MODAL: MONTAR PIZZA -->
     <div id="pizza-modal" class="no-print fixed inset-0 z-50 bg-black/80 hidden items-center justify-center p-4">
         <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
@@ -837,6 +877,8 @@
     <!-- ÁREA DE IMPRESSÃO TÉRMICA 80MM -->
 
     <!-- JAVASCRIPT LOGIC INTEGRADA AO SUPABASE -->
+    <script src="menu-compartilhado.js"></script>
+    <script src="mesa-conta-compartilhada.js"></script>
     <script>
         const SUPABASE_URL = 'https://ciousuoedyezkltyfvqb.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_hts4YS3W97DfKWQQSq3XAw_zdgtNteA';
@@ -906,10 +948,12 @@
         let sharedStateWriteQueue = Promise.resolve();
         let sharedStateUpdatedAt = '';
         let lastSharedStateSaveError = '';
+        let sharedStateWriteBlocked = false;
         let printAgentPresenceChannel = null;
         let printAgentPresenceSubscribed = false;
         let tablePreviewWorkerBusy = false;
         let lastTablePreviewWorkerError = '';
+        const printedWaiterPreviews = new Map();
         const printAgentPresenceSources = new Map();
         const PRINT_AGENT_PRESENCE_HEARTBEAT_MS = 5000;
         const PRINT_AGENT_PRESENCE_TIMEOUT_MS = 15000;
@@ -1017,7 +1061,11 @@ R$ 130,00
         function applySharedState(row, force = false) {
             if (!row?.data || sharedStateSaveCount) return false;
             const incomingAt = row.updated_at || '';
-            if (!force && incomingAt && sharedStateUpdatedAt && Date.parse(incomingAt) <= Date.parse(sharedStateUpdatedAt)) return false;
+            const incomingRevision = row.data._revision;
+            const localRevision = S._revision;
+            if (!force && Number.isSafeInteger(incomingRevision) && Number.isSafeInteger(localRevision)) {
+                if (incomingRevision <= localRevision) return false;
+            } else if (!force && incomingAt && sharedStateUpdatedAt && Date.parse(incomingAt) <= Date.parse(sharedStateUpdatedAt)) return false;
             const existingOrderIds = new Set((S.orders || []).map(order => String(order.id)));
             const previouslyPaidOrderIds = new Set((S.orders || []).filter(order => order.paid).map(order => String(order.id)));
             const localDeletedOrderIds = Array.isArray(S.deletedOrderHistoryIds) ? S.deletedOrderHistoryIds : [];
@@ -1052,6 +1100,10 @@ R$ 130,00
             if (!force) {
                 const newOrders = S.orders.filter(order => !existingOrderIds.has(String(order.id)) && order.status !== 'CANCELADO');
                 newOrders.forEach(scheduleRemoteOrderPrint);
+                if (newOrders.some(order => order.tableRequestId && order.printRequested !== false) &&
+                    (!qzSettings.enabled || !isPrintAgentConnected())) {
+                    toast('Pedido do garçom recebido. Impressão não confirmada; confira a cozinha e reimprima se necessário.');
+                }
                 const newlyReadyOrders = S.orders.filter(order =>
                     order.paid && order.readyAt && !previouslyPaidOrderIds.has(String(order.id))
                 );
@@ -1144,7 +1196,12 @@ R$ 130,00
             const orderId = String(order.id);
             if (automaticPrintQueue.has(orderId)) return;
             automaticPrintQueue.add(orderId);
-            printBothThermal(order).catch(error => {
+            printBothThermal(order).then(printed => {
+                if (printed === false) {
+                    automaticPrintQueue.delete(orderId);
+                    toast(`Pedido #${orderId} recebido, mas a impressão não foi confirmada. Confira a cozinha.`);
+                }
+            }).catch(error => {
                 automaticPrintQueue.delete(orderId);
                 console.error(`Falha na impressão automática do pedido #${orderId}:`, error);
                 toast(`Pedido #${orderId} recebido, mas a impressão automática falhou: ${error.message}`);
@@ -1172,7 +1229,7 @@ R$ 130,00
         }
 
         async function syncSharedState() {
-            if (!supabaseClient || sharedStateSyncPending || sharedStateSaveCount) return false;
+            if (!supabaseClient || sharedStateSyncPending || sharedStateSaveCount || sharedStateWriteBlocked) return false;
             sharedStateSyncPending = true;
             try {
                 const { data, error } = await supabaseClient.from('app_state').select('data,updated_at').eq('id', 'gp_state').single();
@@ -1187,35 +1244,71 @@ R$ 130,00
             }
         }
 
+        function blockSharedStateWrites(error) {
+            sharedStateWriteBlocked = true;
+            if (document.getElementById('shared-state-write-blocker')) return;
+            const blocker = document.createElement('div');
+            blocker.id = 'shared-state-write-blocker';
+            blocker.setAttribute('role', 'alertdialog');
+            blocker.setAttribute('aria-modal', 'true');
+            blocker.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:20px';
+            const box = document.createElement('div');
+            box.style.cssText = 'max-width:520px;background:#1d1d1d;color:white;padding:24px;border:2px solid #f97316;border-radius:12px';
+            const title = document.createElement('h2');
+            title.textContent = 'Sincronização não confirmada';
+            const message = document.createElement('p');
+            message.textContent = `Não confirme pagamentos nem entregue pedidos sem conferir o caixa. A alteração deste dispositivo não foi confirmada: ${error.message}. Recarregue e refaça a operação após conferir os dados.`;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = 'Recarregar e conferir';
+            button.style.cssText = 'margin-top:16px;padding:10px;background:#f97316;color:black;border-radius:8px;font-weight:bold';
+            button.addEventListener('click', () => location.reload());
+            box.append(title, message, button);
+            blocker.appendChild(box);
+            document.body.appendChild(blocker);
+        }
+
         // Persiste as alterações no localStorage e no Supabase
         async function save() {
-            const updatedAt = new Date().toISOString();
             let startedSharedSave = false;
             try {
-                localStorage.setItem(KEY, JSON.stringify(S));
+                if (sharedStateWriteBlocked) throw new Error('Recarregue o sistema antes de tentar outra alteração');
                 if (supabaseClient) {
                     sharedStateSaveCount++;
                     startedSharedSave = true;
                     const snapshot = JSON.parse(JSON.stringify(S));
                     const saveOperation = sharedStateWriteQueue.then(async () => {
-                        const { error } = await supabaseClient.from('app_state').upsert({
+                        if (sharedStateWriteBlocked) throw new Error('Uma alteração anterior não foi sincronizada');
+                        if (!Number.isSafeInteger(S._revision)) {
+                            throw new Error('A proteção de sincronização não está instalada ou o estado não foi carregado');
+                        }
+                        snapshot._revision = S._revision;
+                        const { data: row, error } = await supabaseClient.from('app_state').upsert({
                             id: 'gp_state',
                             data: snapshot,
-                            updated_at: updatedAt
-                        });
+                            updated_at: new Date().toISOString()
+                        }).select('data,updated_at').single();
                         if (error) throw error;
-                        sharedStateUpdatedAt = updatedAt;
+                        if (!Number.isSafeInteger(row?.data?._revision) || row.data._revision !== snapshot._revision + 1) {
+                            throw new Error('O banco não confirmou a proteção de sincronização');
+                        }
+                        S._revision = row.data._revision;
+                        sharedStateUpdatedAt = row.updated_at || sharedStateUpdatedAt;
+                        localStorage.setItem(KEY, JSON.stringify(row.data));
                         lastSharedStateSaveError = '';
                     });
                     sharedStateWriteQueue = saveOperation.catch(() => {});
                     await saveOperation;
+                } else {
+                    localStorage.setItem(KEY, JSON.stringify(S));
                 }
                 return true;
             } catch (e) {
                 console.error('Erro ao salvar:', e);
                 setSupabaseStatus('Supabase com erro');
+                if (supabaseClient) blockSharedStateWrites(e);
                 if (lastSharedStateSaveError !== e.message) {
-                    toast(`Os dados foram salvos neste dispositivo, mas não sincronizados: ${e.message}`);
+                    toast(`A alteração não foi confirmada: ${e.message}`);
                     lastSharedStateSaveError = e.message;
                 }
                 return false;
@@ -1226,20 +1319,7 @@ R$ 130,00
 
         async function persistCashStatusForOnlineOrders() {
             if (!supabaseClient) throw new Error('Supabase indisponível; não foi possível sincronizar o status do caixa.');
-            const updatedAt = new Date().toISOString();
-            localStorage.setItem(KEY, JSON.stringify(S));
-            sharedStateSaveCount++;
-            try {
-                const { error } = await supabaseClient.from('app_state').upsert({
-                    id: 'gp_state',
-                    data: S,
-                    updated_at: updatedAt
-                });
-                if (error) throw error;
-                sharedStateUpdatedAt = updatedAt;
-            } finally {
-                sharedStateSaveCount--;
-            }
+            if (!await save()) throw new Error(lastSharedStateSaveError || 'Falha ao sincronizar o caixa.');
         }
 
         function updateRolePermissions() {
@@ -1308,8 +1388,12 @@ R$ 130,00
                 lastTablePreviewWorkerError = '';
                 if (!job) return;
                 const printed = await printThermal('caixa', job.bill.id, job.bill);
+                if (printed && job.bill.waiterPreview) {
+                    printedWaiterPreviews.set(job.bill.mesa, window.GabryelleMesa.previewSignature(job.bill));
+                }
                 await callOrderBridge('table_preview_result', { targetId, jobId: job.id, printed });
                 if (!printed) toast('Falha ao imprimir a pré-conta solicitada pelo celular.');
+                else if (job.bill.waiterPreview) toast(`Pré-conta da mesa ${job.bill.mesa} enviada à impressora. Aguardando pagamento no caixa.`);
             } catch (error) {
                 console.error('Falha ao processar pré-conta remota:', error);
                 if (lastTablePreviewWorkerError !== error.message) toast(`Falha na impressão remota: ${error.message}`);
@@ -1673,26 +1757,9 @@ R$ 130,00
                 if (!importedOrder) throw new Error('Não foi possível registrar o pedido no PDV.');
             }
 
-            const updatedAt = new Date().toISOString();
-            try {
-                localStorage.setItem(KEY, JSON.stringify(S));
-            } catch (error) {
-                throw new Error(`Não foi possível salvar o pedido no dispositivo: ${error.message}`);
-            }
-            if (onOrderReady) onOrderReady(importedOrder);
             if (!supabaseClient) throw new Error('Supabase indisponível; o pedido ficará pendente de sincronização.');
-            sharedStateSaveCount++;
-            try {
-                const { error } = await supabaseClient.from('app_state').upsert({
-                    id: 'gp_state',
-                    data: S,
-                    updated_at: updatedAt
-                });
-                if (error) throw new Error(`Falha ao salvar o pedido no banco: ${error.message}`);
-                sharedStateUpdatedAt = updatedAt;
-            } finally {
-                sharedStateSaveCount--;
-            }
+            if (!await save()) throw new Error('Não foi possível confirmar o pedido no banco.');
+            if (onOrderReady) onOrderReady(importedOrder);
 
             await callOrderBridge('staff_imported', { orderId: onlineOrder.id });
             return importedOrder;
@@ -1999,35 +2066,8 @@ R$ 130,00
         }
 
         // ===================== CARDÁPIO / PEDIDOS / CAIXA =====================
-        const SIZES = ['Pequena', 'Média', 'Grande', 'Família'];
+        const { SIZES, PZ, DOCE } = window.GabryelleMenu;
         const PAYS = ['Dinheiro', 'PIX', 'Cartão de Crédito', 'Cartão de Débito'];
-        const PZ = [
-            ['Aeroporto','Mussarela, alho desidratado, champignon e tomate rodela'],['A Moda','Mussarela, ovo, frango, milho e bacon'],
-            ['Americana','Milho, bacon, cebola e mussarela'],['Argentina','Mussarela, tomate, parmesão e azeitona'],
-            ['Atum','Mussarela e atum'],['Bacalhau','Bacalhau, mussarela e azeitona'],
-            ['Brasileira','Mussarela, atum, azeitona, cebola e milho'],['Bacon','Mussarela e bacon'],
-            ['Bauru','Mussarela, presunto e rodelas de tomate'],['Calabresa','Mussarela e calabresa'],
-            ['Calabresa Acebolada','Mussarela, calabresa e cebola'],['Calamito','Calabresa, palmito, milho, mussarela e catupiry'],
-            ['Camarão','Azeitona, mussarela, cebola e camarão'],['Carioca','Mussarela, calabresa, bacon, catupiry e cebola'],
-            ['Catupiry','Mussarela e catupiry'],['Espanhola','Presunto, calabresa, palmito, azeitona, tomate e mussarela'],
-            ['Estrogonofe de Frango','Mussarela, frango em cubos, milho, creme de leite e batata palha'],['Frango','Mussarela e frango'],
-            ['Frango com Catupiry','Mussarela, frango e catupiry'],['Gabryelle','Mussarela, frango, creme de leite e milho'],
-            ['Lombinho','Mussarela e lombinho'],['Lombinho com Catupiry','Mussarela, lombinho e catupiry'],
-            ['Mexicana','Carne moída, pimenta desidratada, calabresa, tomate e mussarela'],['Milho','Mussarela e milho'],
-            ['Mussarela','Mussarela, tomate e cebola'],['Napolitana','Mussarela, palmito, milho, azeitona e presunto'],
-            ['Nordestina','Mussarela, carne seca, cebola e banana'],['Presunto','Mussarela e presunto'],
-            ['Palmito','Mussarela e palmito'],['Paulistinha','Frango desfiado, bacon e cheddar'],
-            ['Peito de Peru','Mussarela e peito de peru'],['Peito de Peru com Catupiry','Mussarela, peito de peru e catupiry'],
-            ['Portuguesa','Mussarela, presunto, palmito, ovo e azeitona'],['Quatro Queijos','Mussarela, gorgonzola, provolone e catupiry'],
-            ['Romana','Mussarela, calabresa, ovo, presunto e azeitona'],['Salaminho','Mussarela, salame e azeitona'],
-            ['Siciliana','Bacon, azeitona, cebola, mussarela e champignon'],['Suprema','Mussarela, carne desfiada, catupiry e barbecue'],
-            ['Texas','Mussarela, frango, bacon e molho barbecue'],['Tomate Seco','Tomate seco e catupiry'],
-            ['Tropically','Frango, abacaxi, mussarela e milho']
-        ];
-        const DOCE = [
-            ['Banana','Mussarela, banana, canela em pó e catupiry'],['Brigadeiro','Chocolate, granulado e mussarela'],
-            ['Nutella','Nutella, banana e mussarela'],['Romeu e Julieta','Goiabada, mussarela e creme de leite']
-        ];
         
         const DEF = {
             pt: [0, 0, 0, 0], pd: [0, 0, 55, 65], mf: [4, 4, 4, 4], svc: 10,
@@ -2149,6 +2189,10 @@ R$ 130,00
             console.error('Não foi possível carregar o token do agente de impressão:', error);
         }
         let cart = [], curCat = 'Pizzas', pm = null, selectedMesa = null, selectedCashHistoryId = null, expandedOrderId = null, pendingPaymentTarget = null;
+        let paymentSaving = false;
+        let kdsTableUpdatePending = false;
+        let cashMovementSaving = false;
+        let deliveryEditDraft = null, deliveryEditPending = false;
         let mesaItemUpdatePending = false;
         let deliveryDispatchPending = false, deliveryDriverUpdatePending = false, orderCancellationPending = false;
 
@@ -2945,32 +2989,11 @@ R$ 130,00
             { value: 6, label: 'Sábado' }
         ];
         function promotionPrice(key, regularPrice) {
-            const promo = Number(S.menu.promoPrices[key]);
-            const isPromotionDay = S.menu.promotionDays.includes(new Date().getDay());
-            return isPromotionDay && Number.isFinite(promo) && promo >= 0 && regularPrice > 0 && promo < regularPrice
-                ? promo
-                : regularPrice;
+            return window.GabryelleMenu.promotionPrice(S.menu, key, regularPrice);
         }
 
         function menuItems() {
-            const M = S.menu, out = [];
-            PZ.forEach(p => out.push({ c: 'Pizzas', n: 'Pizza ' + p[0], f: p[0], d: p[1], pz: 0 }));
-            DOCE.forEach(p => out.push({ c: 'Pizzas Doces', n: 'Pizza ' + p[0], f: p[0], d: p[1], pz: 1 }));
-            Object.keys(M.cats).forEach((c, categoryIndex) => M.cats[c].forEach((it, itemIndex) => {
-                const key = `item:${categoryIndex}:${itemIndex}`;
-                out.push({ c, n: it[0], d: it[2], p: promotionPrice(key, it[1]), regularPrice: it[1] });
-            }));
-            M.customItems.forEach(item => {
-                const key = `custom:${item.id}`;
-                out.push({
-                    c: item.category,
-                    n: item.name,
-                    d: item.description || '',
-                    p: promotionPrice(key, item.price),
-                    regularPrice: item.price
-                });
-            });
-            return out;
+            return window.GabryelleMenu.menuItems(S.menu);
         }
         function renderMenu() {
             const q = $('menu-search').value.trim().toLowerCase(), all = menuItems();
@@ -3018,7 +3041,10 @@ R$ 130,00
             renderPM();
             $('pizza-modal').classList.remove('hidden'); $('pizza-modal').classList.add('flex');
         }
-        function closePizza() { $('pizza-modal').classList.add('hidden'); $('pizza-modal').classList.remove('flex'); }
+        function closePizza() {
+            $('pizza-modal').classList.add('hidden'); $('pizza-modal').classList.remove('flex');
+            if (deliveryEditDraft) deliveryEditDraft.pizzaIndex = null;
+        }
         function isMixedPizza() {
             return pm.fl.some(name => PZ.some(flavor => flavor[0] === name))
                 && pm.fl.some(name => DOCE.some(flavor => flavor[0] === name));
@@ -3083,7 +3109,12 @@ R$ 130,00
             if (isMixedPizza() && (!S.menu.pt[pm.s] || !S.menu.pd[pm.s])) return toast('Configure os preços de pizza salgada e doce para este tamanho em Cardápio / Preços.');
             const sweet = pizzaIsSweet();
             if (!pmPrice() || !(sweet ? S.menu.pd : S.menu.pt)[pm.s]) return toast('Tamanho sem preço. Defina em Cardápio / Preços.');
-            addCart({ name: `Pizza ${SIZES[pm.s]}${sweet ? ' Doce' : ''}`, category: sweet ? 'Pizzas Doces' : 'Pizzas', qty: pm.q, price: pmPrice(), det: [...pm.fl, ...pm.ac.map(i => '+ ' + S.menu.ac[i][0])], obs: pm.o.trim() });
+            const pizza = { name: `Pizza ${SIZES[pm.s]}${sweet ? ' Doce' : ''}`, category: sweet ? 'Pizzas Doces' : 'Pizzas', qty: pm.q, price: pmPrice(), det: [...pm.fl, ...pm.ac.map(i => '+ ' + S.menu.ac[i][0])], obs: pm.o.trim() };
+            if (typeof deliveryEditDraft !== 'undefined' && deliveryEditDraft && deliveryEditDraft.pizzaIndex !== null) {
+                if (deliveryEditDraft.pizzaIndex < 0) deliveryEditDraft.items.push(pizza);
+                else deliveryEditDraft.items[deliveryEditDraft.pizzaIndex] = pizza;
+                renderDeliveryEditItems();
+            } else addCart(pizza);
             closePizza();
         }
 
@@ -3134,9 +3165,13 @@ R$ 130,00
             S.orders.push(o);
             if (o.type === 'DELIVERY') upsertCli(o);
             if (o.type !== 'MESA' && pay && pay !== 'Pagar depois') payOrder(o, pay);
-            renderAll(); return o;
+            renderAll(false); return o;
         }
         function payOrder(o, p) {
+            if (cashStatusSyncPending) {
+                toast('Aguarde a sincronização do caixa.');
+                return false;
+            }
             if (o.type === 'MESA') {
                 toast('Pedidos de mesa permanecem abertos até a confirmação da conta completa.');
                 return false;
@@ -3150,7 +3185,9 @@ R$ 130,00
             return true;
         }
         async function createOrder() {
-            await syncSharedState();
+            if (cashStatusSyncPending || deliveryEditPending) return toast('Aguarde a operação em andamento.');
+            if (supabaseClient && !await syncSharedState()) return toast('Não foi possível atualizar o caixa. Tente novamente.');
+            if (cashStatusSyncPending || deliveryEditPending) return toast('Aguarde a operação em andamento.');
             if (!cart.length) return toast('Adicione itens ao pedido');
             if (!currentUser) return toast('Faça login antes de lançar um pedido.');
             const type = $('o-type').value;
@@ -3174,6 +3211,7 @@ R$ 130,00
             if (type === 'DELIVERY' && (!o.cli || !o.end)) return toast('Delivery: informe nome e endereço');
             if (type === 'DELIVERY' && cliLoaded && !$('o-conf').checked) return toast('Confirme o endereço com o cliente');
             if (!finalize(o, payment)) return;
+            if (!await save()) return toast('Não foi possível confirmar o pedido. Confira antes de tentar novamente.');
             cart = []; ['o-cli', 'o-counter-cli', 'o-tel', 'o-end', 'o-bairro', 'o-busca', 'o-change-for'].forEach(id => $(id).value = ''); $('o-taxa').value = '7'; $('o-pay').value = 'Pagar depois'; $('o-change-needed').checked = false; cliLoaded = false; $('o-conf').checked = false; $('o-conf-box').classList.add('hidden'); $('o-busca-res').classList.add('hidden'); renderCart();
             toast(`Pedido #${o.id} enviado para a cozinha`);
             if (type === 'MESA') {
@@ -3183,6 +3221,7 @@ R$ 130,00
             if ($('o-print').checked) scheduleAutomaticOrderPrint(o);
         }
         function receive(id) {
+            if (typeof deliveryEditPending !== 'undefined' && deliveryEditPending) return toast('Aguarde a edição do delivery.');
             if (!caixaAberto()) return toast('O caixa está fechado. Abra um novo caixa antes de receber pagamentos.');
             const order = S.orders.find(item => String(item.id) === String(id));
             if (!order || order.paid || order.status === 'CANCELADO') return;
@@ -3218,29 +3257,7 @@ R$ 130,00
             return { totalCents: totalCents - discountCents, discounts };
         }
         function createMesaBill(mesaNumber, orders, adjustments = null) {
-            const items = orders.flatMap(order => order.items || []);
-            const subtotal = +orders.reduce((sum, order) => sum + Number(order.sub ??
-                (order.items || []).reduce((itemSum, item) => itemSum + (Number(item.qty) || 0) * (Number(item.price) || 0), 0)), 0).toFixed(2);
-            const taxa = +orders.reduce((sum, order) => sum + Number(order.taxa || 0), 0).toFixed(2);
-            const service = +orders.reduce((sum, order) => sum + Number(order.svc || 0), 0).toFixed(2);
-            return {
-                ...orders[0],
-                id: orders[0].id,
-                at: Date.now(),
-                mesa: mesaNumber,
-                items,
-                sub: subtotal,
-                taxa,
-                svc: adjustments?.removeService ? 0 : service,
-                removedService: adjustments?.removeService ? service : 0,
-                discount: adjustments ? adjustments.discounts.reduce((sum, value) => sum + value, 0) / 100 : 0,
-                total: adjustments ? adjustments.totalCents / 100 : +orders.reduce((sum, order) => sum + Number(order.total || 0), 0).toFixed(2),
-                paid: false,
-                pay: '',
-                accountPreview: true,
-                orderRefs: orders.map(order => `#${order.id}`).join(' • '),
-                by: currentUser?.name || orders[0].by || ''
-            };
+            return window.GabryelleMesa.createMesaBill(mesaNumber, orders, adjustments, currentUser?.name);
         }
         function openPaymentModal(orders, mesaNumber = null) {
             const openOrders = orders.filter(isOrderOpen);
@@ -3270,7 +3287,11 @@ R$ 130,00
             updatePaymentPreview();
             if (mesaNumber !== null) {
                 const bill = createMesaBill(mesaNumber, openOrders);
-                printTablePreview(bill);
+                const printedSignature = printedWaiterPreviews.get(mesaNumber);
+                printedWaiterPreviews.delete(mesaNumber);
+                if (!printedSignature || printedSignature !== window.GabryelleMesa.previewSignature(bill)) {
+                    printTablePreview(bill);
+                }
             }
         }
         function addPaymentLine(method = 'PIX', amount = 0) {
@@ -3388,9 +3409,16 @@ R$ 130,00
             $('payment-modal').classList.remove('flex');
             pendingPaymentTarget = null;
         }
-        function confirmOrderPayment() {
+        function confirmOrderPayment() { return confirmOrderPaymentAsync(); }
+        async function confirmOrderPaymentAsync() {
+            if (paymentSaving) return toast('Aguarde a confirmação do pagamento.');
+            paymentSaving = true;
+            try {
+            if (typeof cashStatusSyncPending !== 'undefined' && cashStatusSyncPending) return toast('Aguarde a sincronização do caixa.');
+            if (typeof deliveryEditPending !== 'undefined' && deliveryEditPending) return toast('Aguarde a edição do delivery.');
             if (orderCancellationPending) return toast('Aguarde a conclusão do cancelamento.');
             if (!pendingPaymentTarget) return;
+            if (supabaseClient && !await syncSharedState()) return toast('Não foi possível atualizar o caixa. Confira e tente novamente.');
             if (!caixaAberto()) return toast('O caixa está fechado. Abra um novo caixa antes de receber pagamentos.');
             const orders = pendingPaymentTarget.mesaNumber === null
                 ? S.orders.filter(order => pendingPaymentTarget.orderIds.includes(String(order.id)) && isOrderOpen(order))
@@ -3475,15 +3503,20 @@ R$ 130,00
                 });
             });
             const tableNumber = pendingPaymentTarget.mesaNumber;
+            renderAll(false);
+            if (!await save()) return toast('O pagamento não foi confirmado. Confira a conta antes de continuar.');
             closePaymentModal();
-            renderAll();
             const readyItems = orders.filter(order => order.status === 'PRONTO').reduce((count, order) =>
                 count + (order.items || []).reduce((itemCount, item) => itemCount + (Number(item.qty) || 0), 0), 0);
             const deliveryPending = orders.some(order => order.type === 'DELIVERY' && order.status === 'PENDENTE');
             toast(`${tableNumber === null ? 'Pedido recebido' : `Conta da Mesa ${tableNumber} paga`}. ${deliveryPending ? 'Delivery permanece na cozinha até a expedição.' : `${readyItems} produto(s) pronto(s) e removido(s) do KDS.`} Troco: ${money(result.changeCents / 100)}.`);
+            } finally {
+                paymentSaving = false;
+            }
         }
         function cancelOrder(id) { return cancelOrderAsync(id); }
         async function cancelOrderAsync(id) {
+            if (typeof deliveryEditPending !== 'undefined' && deliveryEditPending) return toast('Aguarde a edição do delivery.');
             if (orderCancellationPending || deliveryDispatchPending || cashStatusSyncPending) return toast('Aguarde a conclusão da operação em andamento.');
             if (!currentUser) return toast('Faça login antes de cancelar um pedido.');
             const order = S.orders.find(item => String(item.id) === String(id));
@@ -3550,13 +3583,25 @@ R$ 130,00
             }
         }
         async function kdsDone(id) {
+            if (typeof deliveryEditPending !== 'undefined' && deliveryEditPending) return toast('Aguarde a edição do delivery.');
             if (deliveryDispatchPending || deliveryDriverUpdatePending || orderCancellationPending) return toast('Aguarde a conclusão da alteração anterior.');
             const order = S.orders.find(item => String(item.id) === String(id));
             if (!order || order.status !== 'PENDENTE') return toast('Este pedido não está mais pendente.');
             if (order.type !== 'DELIVERY') {
-                order.status = 'PRONTO';
-                renderAll();
-                return;
+                if (kdsTableUpdatePending) return toast('Aguarde a confirmação do pedido anterior.');
+                const snapshot = JSON.stringify(order);
+                kdsTableUpdatePending = true;
+                try {
+                    if (supabaseClient && !await syncSharedState()) return toast('Não foi possível atualizar os pedidos.');
+                    const current = S.orders.find(item => String(item.id) === String(id));
+                    if (!current || JSON.stringify(current) !== snapshot) return toast('O pedido foi alterado. Confira antes de marcar como pronto.');
+                    current.status = 'PRONTO';
+                    renderAll(false);
+                    if (!await save()) return toast('O pedido não foi confirmado como pronto. Confira antes de entregar.');
+                    return;
+                } finally {
+                    kdsTableUpdatePending = false;
+                }
             }
             if (!currentUser) return toast('Faça login antes de expedir o pedido.');
             if (!caixaAberto()) return toast('Abra o caixa antes de expedir o delivery.');
@@ -3599,6 +3644,243 @@ R$ 130,00
             if (o.status === 'PENDENTE') return ['Em preparação', 'gold'];
             if (o.type === 'DELIVERY' && o.deliveryDriver) return ['Em entrega • a receber', 'sky'];
             return ['Pronto • a receber', 'sky'];
+        }
+        function openDeliveryEdit(id) {
+            if (!canHandleOnlineOrders()) return toast('Somente administrador, gerente ou caixa pode editar delivery.');
+            const order = S.orders.find(o => String(o.id) === String(id));
+            if (!order || order.type !== 'DELIVERY' || !['PENDENTE', 'PRONTO'].includes(order.status)) {
+                return toast('Este delivery não está disponível para edição.');
+            }
+            deliveryEditDraft = { id: String(id), snapshot: JSON.stringify(order), items: JSON.parse(JSON.stringify(order.items || [])), pizzaIndex: null };
+            $('delivery-edit-title').textContent = `Editar delivery #${order.id}`;
+            $('delivery-edit-cli').value = order.cli || '';
+            $('delivery-edit-tel').value = order.tel || '';
+            $('delivery-edit-end').value = order.end || '';
+            $('delivery-edit-bairro').value = order.bairro || '';
+            $('delivery-edit-taxa').value = String(order.taxa || 0);
+            $('delivery-edit-change').value = !order.paid && order.payPref === 'Dinheiro' && order.needsChange ? String(order.cashChangeFor || '') : '';
+            $('delivery-edit-change').disabled = order.paid || order.payPref !== 'Dinheiro';
+            const options = menuItems().map((item, index) => ({ item, index })).filter(({ item }) => item.pz === undefined);
+            deliveryEditDraft.menuOptions = options;
+            deliveryEditDraft.menuCategories = [...new Set(options.map(option => option.item.c))];
+            deliveryEditDraft.menuCategory = null;
+            $('delivery-edit-menu').innerHTML = deliveryEditDraft.menuCategories.map((category, index) => `<button type="button" onclick="openDeliveryMenu(${index})" class="border border-dark-border rounded px-3 py-2 text-gold-400">${esc(category)}</button>`).join('') || '<p class="text-gray-400">Nenhum outro item cadastrado no cardápio.</p>';
+            renderDeliveryEditItems();
+            $('delivery-edit-modal').classList.remove('hidden');
+            $('delivery-edit-modal').classList.add('flex');
+        }
+        function closeDeliveryEdit() {
+            if (deliveryEditPending) return toast('Aguarde o salvamento.');
+            deliveryEditDraft = null;
+            $('delivery-edit-modal').classList.add('hidden');
+            $('delivery-edit-modal').classList.remove('flex');
+        }
+        function renderDeliveryEditItems() {
+            if (!deliveryEditDraft) return;
+            $('delivery-edit-items').innerHTML = deliveryEditDraft.items.map((item, index) => `<div class="border border-dark-border rounded p-2 text-gray-300">
+                <div class="flex justify-between gap-2"><b>${esc(item.name)}</b><span>${money(Number(item.price) * Number(item.qty))}</span></div>
+                ${(item.det || []).map(detail => `<div class="text-gray-400">${esc(detail)}</div>`).join('')}
+                ${item.obs ? `<div class="text-amber-400">Obs: ${esc(item.obs)}</div>` : ''}
+                <div class="flex gap-3 mt-2"><button onclick="deliveryEditQty(${index},-1)">−</button><span>${Number(item.qty)}</span><button onclick="deliveryEditQty(${index},1)">+</button>${/^Pizza\b/i.test(item.name) ? `<button class="text-gold-400" onclick="deliveryEditPizza(${index})">Trocar pizza</button>` : ''}<button class="text-red-400 ml-auto" onclick="deliveryEditRemove(${index})">Remover</button></div>
+            </div>`).join('') || '<p class="text-gray-400">Adicione ao menos um item.</p>';
+        }
+        function deliveryEditQty(index, amount) {
+            const item = deliveryEditDraft?.items[index];
+            if (!item) return;
+            item.qty = Math.max(1, Number(item.qty) + amount);
+            renderDeliveryEditItems();
+        }
+        function deliveryEditRemove(index) {
+            if (!deliveryEditDraft?.items[index]) return;
+            deliveryEditDraft.items.splice(index, 1);
+            renderDeliveryEditItems();
+        }
+        function openDeliveryMenu(categoryIndex) {
+            if (!deliveryEditDraft || !Number.isInteger(categoryIndex) || !deliveryEditDraft.menuCategories[categoryIndex]) return;
+            const category = deliveryEditDraft.menuCategories[categoryIndex];
+            deliveryEditDraft.menuCategory = category;
+            $('delivery-menu-title').textContent = category;
+            $('delivery-menu-search').value = '';
+            $('delivery-menu-empty').classList.add('hidden');
+            $('delivery-menu-items').innerHTML = deliveryEditDraft.menuOptions.filter(option => option.item.c === category).map(({ item, index }) => {
+                const available = Number.isFinite(Number(item.p)) && Number(item.p) > 0;
+                return `<label class="flex items-start gap-2 p-2 rounded-lg border border-dark-border ${available ? 'cursor-pointer' : 'opacity-50'}">
+                    <input type="checkbox" data-delivery-menu-index="${index}" ${available ? '' : 'disabled'} class="mt-0.5">
+                    <span><b class="text-white">${esc(item.n)}</b> <span class="${available ? 'text-gold-400' : 'text-red-400'}">${available ? money(item.p) : 'Sem preço'}</span>${item.d ? `<span class="block text-gray-400">${esc(item.d)}</span>` : ''}</span>
+                </label>`;
+            }).join('');
+            $('delivery-menu-modal').classList.remove('hidden');
+            $('delivery-menu-modal').classList.add('flex');
+        }
+        function closeDeliveryMenu() {
+            if (deliveryEditDraft) deliveryEditDraft.menuCategory = null;
+            $('delivery-menu-modal').classList.add('hidden');
+            $('delivery-menu-modal').classList.remove('flex');
+        }
+        function filterDeliveryMenuItems() {
+            const normalize = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+            const query = normalize($('delivery-menu-search').value.trim());
+            const labels = [...$('delivery-menu-items').querySelectorAll('label')];
+            let visible = 0;
+            labels.forEach(label => {
+                const matches = normalize(label.textContent).includes(query);
+                label.classList.toggle('hidden', !matches);
+                if (matches) visible++;
+            });
+            $('delivery-menu-empty').classList.toggle('hidden', visible > 0);
+        }
+        function deliveryEditAddItems() {
+            if (!deliveryEditDraft || deliveryEditDraft.menuCategory === null) return;
+            const selected = [...$('delivery-menu-items').querySelectorAll('input[data-delivery-menu-index]:checked')];
+            if (!selected.length) return toast('Marque ao menos um item do cardápio.');
+            const items = selected.map(input => deliveryEditDraft.menuOptions.find(option => option.index === Number(input.dataset.deliveryMenuIndex))?.item);
+            if (items.some(item => !item || item.c !== deliveryEditDraft.menuCategory || item.pz !== undefined || !Number.isFinite(Number(item.p)) || Number(item.p) <= 0)) return toast('Confira os itens selecionados e seus preços.');
+            items.forEach(item => deliveryEditDraft.items.push({ name: item.n, category: item.c, qty: 1, price: Number(item.p), det: [], obs: '' }));
+            renderDeliveryEditItems();
+            closeDeliveryMenu();
+        }
+        function deliveryEditPizza(index) {
+            if (!deliveryEditDraft) return;
+            const item = index < 0 ? null : deliveryEditDraft.items[index];
+            if (index >= 0 && !item) return;
+            if (item && !confirm('Monte novamente a pizza, conferindo tamanho, sabores, acréscimos e observação. O preço será o atual do cardápio.')) return;
+            deliveryEditDraft.pizzaIndex = index;
+            openPizza('', item?.category === 'Pizzas Doces' ? 1 : 0);
+            if (item) {
+                pm.q = Number(item.qty);
+                pm.o = item.obs || '';
+                renderPM();
+            }
+        }
+        function deliveryFeeRecords(orderId) {
+            const history = S.caixaHistory || [];
+            const sessions = [...history];
+            if (S.caixa && !history.some(session => String(session.id) === String(S.caixa.id))) sessions.push(S.caixa);
+            return sessions.flatMap(session => (session.deliveries || [])
+                .filter(delivery => String(delivery.orderId) === String(orderId))
+                .map(delivery => ({ session, delivery, closed: session !== S.caixa || session.status === 'FECHADO' })));
+        }
+        function deliveryFeeCurrent(record) {
+            const corrections = (record.session.deliveryFeeCorrections || []).filter(entry => String(entry.orderId) === String(record.delivery.orderId));
+            return corrections.length ? Number(corrections[corrections.length - 1].to) : Number(record.delivery.fee);
+        }
+        function deliveryPaidCents(orderId) {
+            const history = S.caixaHistory || [];
+            const sessions = [...history];
+            if (S.caixa && !history.some(session => String(session.id) === String(S.caixa.id))) sessions.push(S.caixa);
+            const movements = sessions.flatMap(session => (session.movs || []).filter(m =>
+                ['Venda', 'Ajuste delivery'].includes(m.type)
+                && String(m.orderId ?? (m.desc || '').match(/Pedido Nº (\d+)/)?.[1]) === String(orderId)));
+            if (!movements.some(m => m.type === 'Venda') || movements.some(m =>
+                !Number.isFinite(Number(m.v)) || (m.type === 'Venda' && Number(m.v) < 0))) return null;
+            return movements.reduce((sum, movement) => sum + Math.round(Number(movement.v) * 100), 0);
+        }
+        async function saveDeliveryEdit() {
+            if (!canHandleOnlineOrders()) return toast('Somente administrador, gerente ou caixa pode editar delivery.');
+            if (!deliveryEditDraft || deliveryEditPending || cashStatusSyncPending || deliveryDispatchPending || orderCancellationPending) return toast('Aguarde a operação em andamento.');
+            if (deliveryEditDraft.menuCategory != null) return toast('Conclua ou feche a seleção de produtos antes de salvar.');
+            const draft = deliveryEditDraft;
+            const cli = $('delivery-edit-cli').value.trim(), end = $('delivery-edit-end').value.trim();
+            const tel = formatBrazilPhone($('delivery-edit-tel').value), bairro = $('delivery-edit-bairro').value.trim();
+            const rawFee = $('delivery-edit-taxa').value, taxa = Number(rawFee);
+            const rawChange = $('delivery-edit-change').value, change = Number(rawChange);
+            if (!cli || !end) return toast('Informe o cliente e o endereço.');
+            if (!/^\d+(?:\.\d{1,2})?$/.test(rawFee) || !Number.isFinite(taxa) || taxa > 1000000) return toast('Informe uma taxa válida, com até duas casas decimais.');
+            if (!draft.items.length || draft.items.some(item => !Number.isSafeInteger(Number(item.qty)) || Number(item.qty) < 1 || !Number.isFinite(Number(item.price)) || Number(item.price) < 0)) return toast('Confira os itens e suas quantidades.');
+            const original = JSON.parse(draft.snapshot);
+            const service = Number(original.svc || 0), discount = Number(original.discount || 0);
+            if (!Number.isFinite(service) || service < 0 || !Number.isFinite(discount) || discount < 0) return toast('O serviço ou desconto do pedido é inválido. Confira antes de editar.');
+            const subCents = draft.items.reduce((sum, item) => sum + Math.round(Number(item.price) * 100) * Number(item.qty), 0);
+            const totalCents = subCents + Math.round(taxa * 100) + Math.round(service * 100) - Math.round(discount * 100);
+            if (!Number.isSafeInteger(totalCents) || totalCents <= 0 || totalCents > 100000000) return toast('O total do pedido é inválido.');
+            const differenceCents = totalCents - Math.round(Number(original.total) * 100);
+            const originalSubCents = Math.round(Number(original.sub ?? (original.items || []).reduce((sum, item) => sum + Number(item.qty) * Number(item.price), 0)) * 100);
+            if (!Number.isSafeInteger(originalSubCents)) return toast('O subtotal original do pedido é inválido.');
+            const needsFinancialEntry = Boolean(original.paid && (differenceCents !== 0 || subCents !== originalSubCents
+                || Math.round(taxa * 100) !== Math.round(Number(original.taxa || 0) * 100)));
+            let adjustmentMethod = '';
+            if (needsFinancialEntry) {
+                if (differenceCents !== 0 && !isAdmin()) return toast('Somente o administrador pode registrar a diferença de um pedido já pago.');
+                if (!caixaAberto() || !Array.isArray(S.caixa.movs)) return toast('Abra o caixa para registrar o ajuste do pedido já pago.');
+                if (deliveryPaidCents(original.id) !== Math.round(Number(original.total) * 100)) return toast('Não foi possível conferir os pagamentos anteriores. Verifique o histórico antes de editar.');
+            }
+            if (original.paid && differenceCents !== 0) {
+                const choice = prompt(`${differenceCents > 0 ? 'Recebimento' : 'Devolução'} de ${money(Math.abs(differenceCents) / 100)}. Escolha a forma:\n${PAYS.map((pay, index) => `${index + 1} - ${pay}`).join('\n')}`, '');
+                if (choice === null) return;
+                if (!/^[1-4]$/.test(choice.trim())) return toast('Selecione uma forma de pagamento válida.');
+                adjustmentMethod = PAYS[Number(choice.trim()) - 1];
+            }
+            if (rawChange && (!/^\d+(?:\.\d{1,2})?$/.test(rawChange) || !Number.isFinite(change) || change > 1000000 || Math.round(change * 100) <= totalCents)) {
+                return toast('O valor para troco deve ser maior que o total e ter até duas casas decimais.');
+            }
+            const feeChanged = Math.round(taxa * 100) !== Math.round(Number(original.taxa || 0) * 100);
+            const needsFeeUpdate = feeChanged && (original.status === 'PRONTO' || original.deliveryDriver);
+            const checkCash = needsFeeUpdate || needsFinancialEntry;
+            const cashSnapshot = checkCash ? JSON.stringify({ caixa: S.caixa, history: S.caixaHistory }) : null;
+            const adjustmentMessage = adjustmentMethod ? `\nConfirme que ${differenceCents > 0 ? 'recebeu' : 'devolveu'} ${money(Math.abs(differenceCents) / 100)} por ${adjustmentMethod}. O valor será lançado no caixa atual.` : '';
+            if (!confirm(`Salvar alterações e enviar comanda de alteração à cozinha? Avise também o cliente e o entregador.${adjustmentMessage}`)) return;
+            deliveryEditPending = true;
+            try {
+                if (supabaseClient && !await syncSharedState()) return toast('Não foi possível atualizar o pedido. Verifique a conexão.');
+                const order = S.orders.find(o => String(o.id) === draft.id);
+                if (!canHandleOnlineOrders() || !order || JSON.stringify(order) !== draft.snapshot || !['PENDENTE', 'PRONTO'].includes(order.status)
+                    || cashStatusSyncPending || deliveryDispatchPending || orderCancellationPending) return toast('O pedido mudou ou outra operação começou. Confira e tente novamente.');
+                if (checkCash && JSON.stringify({ caixa: S.caixa, history: S.caixaHistory }) !== cashSnapshot) return toast('O caixa ou o registro do entregador mudou. Confira e tente novamente.');
+                if (needsFinancialEntry && ((differenceCents !== 0 && !isAdmin()) || !caixaAberto() || !Array.isArray(S.caixa.movs)
+                    || deliveryPaidCents(order.id) !== Math.round(Number(original.total) * 100))) return toast('Não foi possível confirmar o pagamento e o caixa. Confira e tente novamente.');
+                let feeRecord;
+                if (needsFeeUpdate) {
+                    const records = deliveryFeeRecords(order.id);
+                    if (records.length !== 1 || !Number.isFinite(deliveryFeeCurrent(records[0]))
+                        || Math.round(deliveryFeeCurrent(records[0]) * 100) !== Math.round(Number(original.taxa || 0) * 100)
+                        || (order.deliveryDriver && String(records[0].delivery.driverId) !== String(order.deliveryDriver.id))) {
+                        return toast('Não foi possível conferir a taxa do entregador. Verifique o histórico antes de alterar a taxa.');
+                    }
+                    feeRecord = records[0];
+                }
+                const before = { cli: order.cli, tel: order.tel, end: order.end, bairro: order.bairro, items: order.items, taxa: order.taxa, sub: order.sub, total: order.total, needsChange: order.needsChange, cashChangeFor: order.cashChangeFor };
+                const timestamp = Date.now();
+                if (feeRecord) {
+                    const correction = { orderId: order.id, driverId: feeRecord.delivery.driverId, driverName: feeRecord.delivery.driverName, from: deliveryFeeCurrent(feeRecord), to: taxa, at: timestamp, by: currentUser.name, byId: currentUser.id };
+                    if (feeRecord.closed) {
+                        if (!feeRecord.session.summary) feeRecord.session.summary = caixaResumo(feeRecord.session);
+                        (feeRecord.session.deliveryFeeCorrections = feeRecord.session.deliveryFeeCorrections || []).push(correction);
+                    } else {
+                        (feeRecord.delivery.feeCorrections = feeRecord.delivery.feeCorrections || []).push(correction);
+                        feeRecord.delivery.fee = taxa;
+                    }
+                }
+                order.cli = cli; order.tel = tel; order.end = end; order.bairro = bairro;
+                order.items = JSON.parse(JSON.stringify(draft.items));
+                order.taxa = taxa; order.sub = subCents / 100; order.total = totalCents / 100;
+                if (needsFinancialEntry) {
+                    S.caixa.movs.push({
+                        t: timestamp, type: 'Ajuste delivery', desc: `Ajuste pedido Nº ${order.id} (Delivery)`,
+                        orderId: order.id, orderType: 'DELIVERY', pay: adjustmentMethod, v: differenceCents / 100,
+                        productDifference: (subCents - originalSubCents) / 100,
+                        feeDifference: (Math.round(taxa * 100) - Math.round(Number(original.taxa || 0) * 100)) / 100,
+                        by: order.by || '', correctedBy: currentUser.name, correctedById: currentUser.id
+                    });
+                }
+                if (!order.paid && order.payPref === 'Dinheiro') {
+                    order.needsChange = Boolean(rawChange);
+                    if (rawChange) order.cashChangeFor = change;
+                    else delete order.cashChangeFor;
+                }
+                const after = { cli, tel, end, bairro, items: JSON.parse(JSON.stringify(order.items)), taxa, sub: order.sub, total: order.total };
+                const editIndex = (order.editHistory = order.editHistory || []).push({ at: timestamp, by: currentUser.name, byId: currentUser.id, before, after, adjustment: adjustmentMethod ? { method: adjustmentMethod, amount: differenceCents / 100 } : null }) - 1;
+                renderAll(false);
+                const saved = await save();
+                deliveryEditDraft = null;
+                $('delivery-edit-modal').classList.add('hidden');
+                $('delivery-edit-modal').classList.remove('flex');
+                if (!saved) return toast('Não foi possível salvar ou sincronizar a alteração. Confira os dados antes de continuar.');
+                const printed = await printDeliveryChange(order.id, editIndex, order);
+                if (!printed) return toast('Delivery atualizado, mas a comanda não foi confirmada. Avise a cozinha e tente reimprimir no gestor.');
+                toast(`Delivery atualizado${supabaseClient ? '' : ' neste dispositivo'} e comanda enviada. Avise o cliente e o entregador.`);
+            } finally {
+                deliveryEditPending = false;
+            }
         }
         function renderAll(persist = true) {
             renderOrdersList();
@@ -3646,7 +3928,10 @@ R$ 130,00
                             <div class="flex justify-between"><span>Pagamento</span><span>${esc(o.paymentCorrection ? 'Registro cancelado: não recebido' : o.paid ? o.pay : o.payPref || 'A receber')}</span></div>
                             ${!o.paid && o.cashChangeFor ? `<div class="flex justify-between"><span>Troco previsto para ${money(o.cashChangeFor)}</span><span>${money(o.cashChangeFor - o.total)}</span></div>` : ''}
                             ${o.paid && o.change ? `<div class="flex justify-between"><span>Troco</span><span>${money(o.change)}</span></div>` : ''}
+                            ${(o.editHistory || []).filter(entry => entry.adjustment).map(entry => `<div class="flex justify-between text-amber-400"><span>${entry.adjustment.amount < 0 ? 'Devolvido' : 'Recebido'} • ${esc(entry.adjustment.method)}</span><span>${money(Math.abs(entry.adjustment.amount))}</span></div>`).join('')}
                         </div>
+                        ${isAdmin() && o.paid && caixaAberto() ? `<div class="border-t border-dark-border pt-2">${(S.caixa.movs || []).map((m, i) => m.type === 'Venda' && String(m.orderId) === String(o.id) && PAYS.includes(m.pay) ? `<div class="flex justify-between gap-2 text-gray-400"><span>${esc(m.pay)} • ${money(m.v)}</span><button class="text-gold-400" onclick="correctPaymentMethod('${esc(String(S.caixa.id))}',${i},false)">Corrigir forma</button></div>` : '').join('')}</div>` : ''}
+                        ${canHandleOnlineOrders() && o.type === 'DELIVERY' && ['PENDENTE', 'PRONTO'].includes(o.status) ? `<div class="flex justify-end gap-2 border-t border-dark-border pt-3">${o.editHistory?.[o.editHistory.length - 1]?.after ? `<button type="button" onclick="printDeliveryChange(${o.id},${o.editHistory.length - 1})" class="rounded-lg border border-dark-border px-4 py-2 text-gray-300">Reimprimir alteração</button>` : ''}<button type="button" onclick="openDeliveryEdit(${o.id})" class="rounded-lg border border-gold-500 px-4 py-2 text-gold-400">Editar delivery</button></div>` : ''}
                         ${canReceive ? `<div class="flex justify-end border-t border-dark-border pt-3"><button type="button" onclick="receive(${o.id})" class="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-black hover:bg-emerald-600">${o.type === 'MESA' ? 'Fechar conta da mesa' : 'Fechar conta / Receber'}</button></div>` : ''}
                     </div>
                 </td></tr>`;
@@ -3854,7 +4139,10 @@ R$ 130,00
             onTypeChange();
             switchTab('novo-pedido');
         }
-        function fecharMesa(n) {
+        async function fecharMesa(n) {
+            if (supabaseClient && !await syncSharedState()) {
+                return toast('Não foi possível atualizar a mesa. Confira a conexão e tente novamente.');
+            }
             if (!caixaAberto()) return toast('O caixa está fechado. Abra um novo caixa antes de receber pagamentos.');
             const orders = mesaOrders(n);
             if (!orders.length) return toast('Esta mesa não possui pedidos em aberto');
@@ -3863,7 +4151,7 @@ R$ 130,00
 
         // ---------- Caixa ----------
         function caixaResumo(c) {
-            const movs = c.movs || [], sales = movs.filter(m => m.type === 'Venda');
+            const movs = c.movs || [], sales = movs.filter(m => m.type === 'Venda' || m.type === 'Ajuste delivery');
             const sumType = type => movs.filter(m => m.type === type).reduce((sum, m) => sum + Number(m.v || 0), 0);
             const byPayment = Object.fromEntries(PAYS.map(pay => [pay, sales.filter(m => m.pay === pay).reduce((sum, m) => sum + Number(m.v || 0), 0)]));
             const summary = {
@@ -3891,8 +4179,22 @@ R$ 130,00
             summary.deliveryDrivers = Array.from(deliveryDrivers.values(), entry => ({ name: entry.name, count: entry.count, fee: entry.feeCents / 100 }));
 
             const countedOrders = new Set();
+            const ordersSoldHere = new Set(sales.filter(m => m.type === 'Venda')
+                .map(m => String(m.orderId ?? (m.desc || '').match(/Pedido Nº (\d+)/)?.[1])));
             sales.forEach(m => {
                 const orderId = m.orderId || Number((m.desc || '').match(/Pedido Nº (\d+)/)?.[1]);
+                if (m.type === 'Ajuste delivery') {
+                    const amount = Number(m.v);
+                    summary.delivery.total += amount;
+                    if (summary.delivery.byPayment[m.pay] !== undefined) summary.delivery.byPayment[m.pay] += amount;
+                    if (!ordersSoldHere.has(String(orderId))) {
+                        summary.delivery.products += Number(m.productDifference || 0);
+                        summary.delivery.deliveryFee += Number(m.feeDifference || 0);
+                    }
+                    const attendant = m.by || 'Não informado';
+                    summary.attendants[attendant] = (summary.attendants[attendant] || 0) + amount;
+                    return;
+                }
                 const order = S.orders.find(o => o.id === orderId) || m.orderSnapshot;
                 if (!order) return;
                 const type = order.type || m.orderType;
@@ -3925,13 +4227,102 @@ R$ 130,00
         }
         function caixaDateTime(value) { return new Date(value).toLocaleString('pt-BR'); }
         function caixaClosedAt(c) { return c.closedAt || c.closed?.at || null; }
+        function correctedCashSummary(c) {
+            const summary = JSON.parse(JSON.stringify(c.summary || caixaResumo(c)));
+            (c.paymentCorrections || []).forEach(correction => {
+                const movement = (c.movs || [])[correction.movementIndex];
+                if (!movement) return;
+                const amount = Number(movement.v);
+                summary.byPayment[correction.from] -= amount;
+                summary.byPayment[correction.to] += amount;
+            });
+            summary.drawerCash = Number(c.initial || 0) + summary.supplies - summary.withdrawals + summary.byPayment.Dinheiro;
+            return summary;
+        }
+        function correctedDeliveryDrivers(c) {
+            const drivers = new Map();
+            (c.deliveries || []).forEach(delivery => {
+                const key = String(delivery.driverId);
+                const driver = drivers.get(key) || { name: delivery.driverName, count: 0, feeCents: 0 };
+                const corrections = (c.deliveryFeeCorrections || []).filter(entry => String(entry.orderId) === String(delivery.orderId));
+                const fee = corrections.length ? corrections[corrections.length - 1].to : delivery.fee;
+                driver.name = delivery.driverName;
+                driver.count++;
+                driver.feeCents += Math.round(Number(fee) * 100);
+                drivers.set(key, driver);
+            });
+            return [...drivers.values()].map(driver => ({ name: driver.name, count: driver.count, fee: driver.feeCents / 100 }));
+        }
+        function cashPaymentMethod(c, index) {
+            const corrections = (c.paymentCorrections || []).filter(entry => entry.movementIndex === index);
+            return corrections.length ? corrections[corrections.length - 1].to : c.movs[index].pay;
+        }
+        async function correctPaymentMethod(sessionId, movementIndex, closed) {
+            if (!isAdmin()) return toast('Somente o administrador pode corrigir pagamentos.');
+            if (typeof deliveryEditPending !== 'undefined' && deliveryEditPending) return toast('Aguarde a edição do delivery.');
+            if (cashStatusSyncPending || orderCancellationPending || deliveryDispatchPending) return toast('Aguarde a operação em andamento.');
+            const session = closed ? S.caixaHistory.find(c => String(c.id) === String(sessionId)) : S.caixa;
+            const movement = session?.movs?.[movementIndex];
+            if (!session || String(session.id) !== String(sessionId) || (!closed && !caixaAberto())
+                || !movement || movement.type !== 'Venda' || !Number.isFinite(Number(movement.v)) || Number(movement.v) <= 0
+                || !PAYS.includes(cashPaymentMethod(session, movementIndex))) {
+                return toast('Este lançamento não está disponível para correção.');
+            }
+            const from = cashPaymentMethod(session, movementIndex);
+            const choice = prompt(`Corrigir ${movement.desc} — ${money(movement.v)} (${from}).\nEscolha a nova forma:\n${PAYS.map((pay, index) => `${index + 1} - ${pay}`).join('\n')}`, '');
+            if (choice === null) return;
+            if (!/^[1-4]$/.test(choice.trim())) return toast('Selecione uma forma de pagamento válida.');
+            const to = PAYS[Number(choice.trim()) - 1];
+            if (from === to) return toast('A forma selecionada é igual à atual.');
+            const reason = prompt('Informe o motivo da correção:', '');
+            if (reason === null) return;
+            if (!reason.trim()) return toast('Informe o motivo da correção.');
+            if (!confirm(`Confirmar correção de ${money(movement.v)} de ${from} para ${to}?${closed ? '\nA conferência original do caixa será preservada.' : ''}\nEsta operação não movimenta dinheiro.`)) return;
+            const snapshot = JSON.stringify({ session, orders: S.orders });
+            cashStatusSyncPending = true;
+            try {
+                if (supabaseClient && !await syncSharedState()) return toast('Não foi possível atualizar o caixa. Verifique a conexão.');
+                const current = closed ? S.caixaHistory.find(c => String(c.id) === String(sessionId)) : S.caixa;
+                if (!isAdmin() || !current || JSON.stringify({ session: current, orders: S.orders }) !== snapshot
+                    || (!closed && !caixaAberto())) return toast('O caixa ou os pedidos mudaram. Confira e tente novamente.');
+                const entry = current.movs[movementIndex];
+                const correction = { movementIndex, desc: entry.desc, amount: Number(entry.v), from, to, reason: reason.trim(), at: Date.now(), by: currentUser.name, byId: currentUser.id };
+                if (closed) {
+                    if (!current.summary) current.summary = caixaResumo(current);
+                    (current.paymentCorrections = current.paymentCorrections || []).push(correction);
+                } else {
+                    correction.cashReceived = entry.cashReceived;
+                    correction.change = entry.change;
+                    (entry.paymentCorrections = entry.paymentCorrections || []).push(correction);
+                    entry.pay = to;
+                    delete entry.cashReceived;
+                    delete entry.change;
+                    const orderId = entry.orderId ?? (entry.desc || '').match(/Pedido Nº (\d+)/)?.[1];
+                    const order = S.orders.find(o => String(o.id) === String(orderId));
+                    if (order) {
+                        const sales = current.movs.filter(m => m.type === 'Venda'
+                            && String(m.orderId ?? (m.desc || '').match(/Pedido Nº (\d+)/)?.[1]) === String(order.id));
+                        order.paymentDetails = sales.map(m => ({ method: m.pay, amount: Number(m.v) }));
+                        order.pay = [...new Set(sales.map(m => m.pay))].join(' + ');
+                        order.change = sales.reduce((sum, m) => sum + Number(m.change || 0), 0);
+                    }
+                }
+                renderAll(false);
+                if (!await save()) return toast('Não foi possível salvar ou sincronizar a correção. Confira os dados antes de continuar.');
+                toast(`Forma de pagamento corrigida e alteração registrada${supabaseClient ? '' : ' neste dispositivo'}.`);
+            } finally {
+                cashStatusSyncPending = false;
+            }
+        }
         function caixaRelatorioHtml(c) {
             const summary = c.summary || caixaResumo(c);
+            const corrected = (c.paymentCorrections || []).length ? correctedCashSummary(c) : null;
             const row = (label, value, cls = 'text-gray-300') => `<div class="flex justify-between gap-3 ${cls}"><span>${label}</span><span class="font-medium text-right">${value}</span></div>`;
             const methodRows = obj => PAYS.map(pay => row(esc(pay), money(obj.byPayment[pay] || 0))).join('');
             const category = (title, data, includeFee) => `<div class="space-y-1.5 border-t border-dark-border pt-3"><h4 class="text-[11px] font-bold uppercase tracking-wider text-gray-400">${title}</h4>${methodRows(data)}${row('Valor dos produtos', money(data.products))}${includeFee ? row('Taxa de entrega', money(data.deliveryFee)) : ''}${data.serviceFee ? row('Serviço', money(data.serviceFee)) : ''}${data.discount ? row('Descontos', '- ' + money(data.discount)) : ''}${row('Total', money(data.total), 'font-bold text-white')}</div>`;
             const attendants = Object.entries(summary.attendants).sort((a, b) => b[1] - a[1]).map(([name, value]) => row(esc(name), money(value))).join('') || '<p class="text-xs text-gray-500">Sem vendas por atendente.</p>';
             const drivers = (summary.deliveryDrivers || []).map(driver => row(`${esc(driver.name)} (${driver.count} entrega(s))`, money(driver.fee))).join('') || '<p class="text-xs text-gray-500">Nenhuma entrega expedida nesta sessão.</p>';
+            const correctedDrivers = (c.deliveryFeeCorrections || []).length ? correctedDeliveryDrivers(c) : null;
             const withdrawal = Number(c.withdrawal || 0);
             const remaining = c.remainingCash === undefined ? summary.drawerCash : Number(c.remainingCash);
             return `<div class="space-y-4 text-xs">
@@ -3942,18 +4333,21 @@ R$ 130,00
                     ${row('Saldo inicial', money(c.initial))}${row('Suprimentos', money(summary.supplies))}${row('Sangrias', '- ' + money(summary.withdrawals))}${row('Vendas em dinheiro', money(summary.byPayment.Dinheiro || 0))}${row('Valor em caixa', money(summary.drawerCash), 'font-bold text-white')}${row('Retirado no fechamento', money(withdrawal))}${row('Ficou no caixa', money(remaining), 'font-bold text-gold-400')}
                 </div>
                 <div class="space-y-1.5 border-t border-dark-border pt-3"><h4 class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Resumo das vendas</h4>${methodRows(summary)}${row('Total', money(summary.sales), 'font-bold text-white')}</div>
+                ${corrected ? `<div class="space-y-1.5 border-t border-dark-border pt-3"><h4 class="font-bold text-amber-400">Valores esperados corrigidos (conferência original preservada)</h4>${methodRows(corrected)}${row('Dinheiro esperado corrigido', money(corrected.drawerCash))}<p class="text-gray-400">Retirada, saldo físico e caixas posteriores não foram alterados.</p>${(c.paymentCorrections || []).map(x => `<p class="text-gray-400">${esc(caixaDateTime(x.at))} • ${esc(x.by)} • ${esc(x.desc)} • ${money(x.amount)}: ${esc(x.from)} → ${esc(x.to)} • ${esc(x.reason)}</p>`).join('')}</div>` : ''}
+                ${isAdmin() ? `<div class="space-y-2 border-t border-dark-border pt-3"><h4 class="font-bold text-gray-400">Corrigir pagamentos</h4>${(c.movs || []).map((m, i) => m.type === 'Venda' && PAYS.includes(cashPaymentMethod(c, i)) ? `<div><div class="flex justify-between gap-2"><span>${esc(m.desc)} • ${esc(cashPaymentMethod(c, i))} • ${money(m.v)}</span><button class="text-gold-400" onclick="correctPaymentMethod('${esc(String(c.id))}',${i},true)">Corrigir</button></div>${(m.paymentCorrections || []).map(x => `<p class="text-gray-400">${esc(caixaDateTime(x.at))} • ${esc(x.by)}: ${esc(x.from)} → ${esc(x.to)} • ${esc(x.reason)} (antes do fechamento)</p>`).join('')}</div>` : '').join('') || '<p class="text-gray-500">Nenhuma venda disponível.</p>'}</div>` : ''}
                 ${category('Vendas delivery', summary.delivery, true)}
                 ${category('Vendas mesas', summary.tables, false)}
                 ${category('Vendas balcão', summary.counter, false)}
                 <div class="space-y-1.5 border-t border-dark-border pt-3"><h4 class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Vendas por atendente</h4>${attendants}</div>
                 <div class="space-y-1.5 border-t border-dark-border pt-3"><h4 class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Taxas por entregador • expedições da sessão</h4>${drivers}</div>
+                ${correctedDrivers ? `<div class="space-y-1.5 border-t border-dark-border pt-3"><h4 class="font-bold text-amber-400">Taxas por entregador corrigidas</h4>${correctedDrivers.map(driver => row(`${esc(driver.name)} (${driver.count} entrega(s))`, money(driver.fee))).join('')}<p class="text-gray-400">Conferência original preservada.</p>${c.deliveryFeeCorrections.map(entry => `<p class="text-gray-400">${esc(caixaDateTime(entry.at))} • ${esc(entry.by)} • Pedido #${esc(entry.orderId)} • ${esc(entry.driverName)}: ${money(entry.from)} → ${money(entry.to)}</p>`).join('')}</div>` : ''}
             </div>`;
         }
         function renderCaixaLedger() {
             const c = S.caixa, isOpen = caixaAberto(), m = isOpen ? c.movs || [] : [];
             const sum = t => m.filter(x => x.type === t).reduce((a, x) => a + x.v, 0);
-            const by = p => m.filter(x => x.type === 'Venda' && x.pay === p).reduce((a, x) => a + x.v, 0);
-            const sup = sum('Suprimento'), sang = sum('Sangria'), din = by('Dinheiro'), tot = sum('Venda');
+            const by = p => m.filter(x => (x.type === 'Venda' || x.type === 'Ajuste delivery') && x.pay === p).reduce((a, x) => a + Number(x.v), 0);
+            const sup = sum('Suprimento'), sang = sum('Sangria'), din = by('Dinheiro'), tot = sum('Venda') + sum('Ajuste delivery');
             $('caixa-session').textContent = isOpen
                 ? `Sessão #${c.id} • Aberto em ${new Date(c.at).toLocaleString('pt-BR')}`
                 : 'Nenhum caixa aberto. Abra o caixa para iniciar uma sessão.';
@@ -3964,8 +4358,8 @@ R$ 130,00
             $('caixa-main-action-label').textContent = isOpen ? 'FECHAR CAIXA' : 'ABRIR CAIXA';
             $('caixa-main-action-icon').setAttribute('data-lucide', isOpen ? 'lock' : 'unlock');
             $('caixa-count').textContent = isOpen ? `Total: ${m.length} lançamentos` : '0 lançamentos';
-            const badge = { Venda: 'emerald', 'Venda cancelada': 'red', Suprimento: 'sky', Sangria: 'red' };
-            $('caixa-ledger-body').innerHTML = m.slice().reverse().map(x => `<tr class="hover:bg-dark-hover"><td class="p-3 font-mono text-gray-400">${new Date(x.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td><td class="p-3 font-medium text-white">${esc(x.desc)}${x.type === 'Venda cancelada' ? '<div class="text-[10px] text-red-400">Pagamento não recebido • fora dos totais</div>' : ''}</td><td class="p-3 text-gray-400">${x.pay}</td><td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-${badge[x.type]}-500/10 text-${badge[x.type]}-400">${x.type}</span></td><td class="p-3 text-right font-bold ${x.type === 'Sangria' || x.type === 'Venda cancelada' ? 'text-red-400' : 'text-emerald-400'}">${x.type === 'Sangria' ? '- ' : ''}${money(x.v)}</td></tr>`).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum lançamento</td></tr>';
+            const badge = { Venda: 'emerald', 'Ajuste delivery': 'amber', 'Venda cancelada': 'red', Suprimento: 'sky', Sangria: 'red' };
+            $('caixa-ledger-body').innerHTML = m.map((x, i) => ({ x, i })).reverse().map(({ x, i }) => `<tr class="hover:bg-dark-hover"><td class="p-3 font-mono text-gray-400">${new Date(x.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td><td class="p-3 font-medium text-white">${esc(x.desc)}${x.type === 'Ajuste delivery' ? `<div class="text-[10px] text-amber-400">${Number(x.v) < 0 ? 'Devolução' : Number(x.v) > 0 ? 'Recebimento' : 'Ajuste sem movimentação'} • ${esc(x.correctedBy)}</div>` : ''}${x.type === 'Venda cancelada' ? '<div class="text-[10px] text-red-400">Pagamento não recebido • fora dos totais</div>' : ''}${(x.paymentCorrections || []).map(c => `<div class="text-[10px] text-amber-400">${esc(c.by)}: ${esc(c.from)} → ${esc(c.to)} • ${esc(c.reason)}</div>`).join('')}</td><td class="p-3 text-gray-400">${esc(x.pay)}${isAdmin() && x.type === 'Venda' && PAYS.includes(x.pay) ? ` <button class="text-gold-400" onclick="correctPaymentMethod('${esc(String(c.id))}',${i},false)">Corrigir</button>` : ''}</td><td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-${badge[x.type]}-500/10 text-${badge[x.type]}-400">${x.type}</span></td><td class="p-3 text-right font-bold ${x.type === 'Sangria' || x.type === 'Venda cancelada' || Number(x.v) < 0 ? 'text-red-400' : 'text-emerald-400'}">${x.type === 'Sangria' ? '- ' : ''}${money(x.v)}</td></tr>`).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum lançamento</td></tr>';
             if (!isOpen) {
                 $('caixa-side').innerHTML = '<div class="bg-dark-card rounded-xl border border-dark-border p-4 text-xs text-gray-400">Os dados da sessão encerrada estão disponíveis no histórico.</div>';
                 lucide.createIcons();
@@ -4029,12 +4423,27 @@ R$ 130,00
             selectedCashHistoryId = null;
             renderCaixaHistory();
         }
-        function caixaMov(type) {
+        async function caixaMov(type) {
+            if (cashMovementSaving) return toast('Aguarde a confirmação da movimentação anterior.');
             if (!caixaAberto()) return toast('O caixa está fechado. Abra o caixa para registrar movimentações.');
-            const v = parseFloat((prompt(`Valor da ${type} (R$):`) || '').replace(',', '.'));
-            if (!(v > 0)) return;
-            if (type === 'Sangria' && v > caixaResumo(S.caixa).drawerCash) return toast('A sangria não pode ser maior que o dinheiro disponível no caixa.');
-            S.caixa.movs.push({ t: Date.now(), type, desc: (prompt('Motivo / descrição:') || type).trim(), pay: 'Dinheiro', v }); renderAll();
+            const entered = prompt(`Valor da ${type} (R$):`);
+            if (entered === null) return;
+            const v = parseFloat(entered.replace(',', '.'));
+            if (!Number.isFinite(v) || v <= 0) return toast('Informe um valor válido para a movimentação.');
+            const desc = (prompt('Motivo / descrição:') || type).trim();
+            const cashId = S.caixa.id;
+            cashMovementSaving = true;
+            try {
+                if (supabaseClient && !await syncSharedState()) return toast('Não foi possível atualizar o caixa.');
+                if (!caixaAberto() || S.caixa.id !== cashId) return toast('O caixa mudou. Confira antes de registrar a movimentação.');
+                if (type === 'Sangria' && v > caixaResumo(S.caixa).drawerCash) return toast('A sangria não pode ser maior que o dinheiro disponível no caixa.');
+                S.caixa.movs.push({ t: Date.now(), type, desc, pay: 'Dinheiro', v });
+                renderAll(false);
+                if (!await save()) return toast('A movimentação não foi confirmada. Confira o caixa.');
+                toast(`${type} registrada.`);
+            } finally {
+                cashMovementSaving = false;
+            }
         }
         let thermalLogoDataUrlPromise;
         async function thermalBrandMarkup() {
@@ -4068,7 +4477,11 @@ R$ 130,00
                 const category = (title, data, includeFee) => `<div class="tk-hr"></div><div class="tk-b">${title}</div>${PAYS.map(pay => r(esc(pay), money(data.byPayment[pay] || 0))).join('')}${r('Valor dos produtos', money(data.products))}${includeFee ? r('Taxa de entrega', money(data.deliveryFee)) : ''}${data.serviceFee ? r('Serviço', money(data.serviceFee)) : ''}${r('Total', money(data.total), 'tk-b')}`;
                 const attendants = Object.entries(summary.attendants).sort((a, b) => b[1] - a[1]).map(([name, value]) => r(esc(name), money(value))).join('');
                 const drivers = (summary.deliveryDrivers || []).map(driver => r(`${esc(driver.name)} (${driver.count})`, money(driver.fee))).join('');
-                const markup = `${await thermalBrandMarkup()}<div class="tk-hr2"></div><div class="tk-c tk-b">RESUMO DO CAIXA</div><div class="tk-c tk-sm">Sessão #${esc(c.id)}</div><div class="tk-c tk-sm">Aberto em ${caixaDateTime(c.at)}</div>${c.closedAt ? `<div class="tk-c tk-sm">Fechado em ${caixaDateTime(c.closedAt)}</div>` : ''}<div class="tk-hr"></div>${r('Saldo inicial', money(c.initial))}${r('Suprimentos', money(summary.supplies))}${r('Sangrias', '- ' + money(summary.withdrawals))}${r('Vendas em dinheiro', money(summary.byPayment.Dinheiro || 0))}${r('Valor em caixa', money(summary.drawerCash), 'tk-b')}${r('Retirado no fechamento', money(c.withdrawal || 0))}${r('Ficou no caixa', money(c.remainingCash ?? summary.drawerCash), 'tk-b')}<div class="tk-hr"></div><div class="tk-b">RESUMO DAS VENDAS</div>${PAYS.map(pay => r(esc(pay), money(summary.byPayment[pay] || 0))).join('')}${r('TOTAL', money(summary.sales), 'tk-tot')}${category('VENDAS DELIVERY', summary.delivery, true)}${category('VENDAS MESAS', summary.tables, false)}${category('VENDAS BALCAO', summary.counter, false)}${attendants ? `<div class="tk-hr"></div><div class="tk-b">VENDAS POR ATENDENTE</div>${attendants}` : ''}${drivers ? `<div class="tk-hr"></div><div class="tk-b">TAXAS POR ENTREGADOR - EXPEDICOES</div>${drivers}` : ''}${tkEnd}`;
+                const corrected = (c.paymentCorrections || []).length ? correctedCashSummary(c) : null;
+                const correctedDrivers = (c.deliveryFeeCorrections || []).length ? correctedDeliveryDrivers(c) : null;
+                const correctionsMarkup = corrected ? `<div class="tk-hr"></div><div class="tk-b">VALORES ESPERADOS CORRIGIDOS</div><div class="tk-sm">Conferência original preservada; saldo físico inalterado.</div>${PAYS.map(pay => r(esc(pay), money(corrected.byPayment[pay] || 0))).join('')}${r('Dinheiro esperado corrigido', money(corrected.drawerCash))}${c.paymentCorrections.map(x => `<div class="tk-sm">${esc(caixaDateTime(x.at))} ${esc(x.by)} • ${esc(x.desc)} • ${money(x.amount)}: ${esc(x.from)} → ${esc(x.to)} • ${esc(x.reason)}</div>`).join('')}` : '';
+                const driverCorrectionsMarkup = correctedDrivers ? `<div class="tk-hr"></div><div class="tk-b">TAXAS POR ENTREGADOR CORRIGIDAS</div><div class="tk-sm">Conferência original preservada.</div>${correctedDrivers.map(driver => r(`${esc(driver.name)} (${driver.count})`, money(driver.fee))).join('')}${c.deliveryFeeCorrections.map(entry => `<div class="tk-sm">${esc(caixaDateTime(entry.at))} ${esc(entry.by)} • Pedido #${esc(entry.orderId)} • ${esc(entry.driverName)}: ${money(entry.from)} → ${money(entry.to)}</div>`).join('')}` : '';
+                const markup = `${await thermalBrandMarkup()}<div class="tk-hr2"></div><div class="tk-c tk-b">RESUMO DO CAIXA</div><div class="tk-c tk-sm">Sessão #${esc(c.id)}</div><div class="tk-c tk-sm">Aberto em ${caixaDateTime(c.at)}</div>${c.closedAt ? `<div class="tk-c tk-sm">Fechado em ${caixaDateTime(c.closedAt)}</div>` : ''}<div class="tk-hr"></div>${r('Saldo inicial', money(c.initial))}${r('Suprimentos', money(summary.supplies))}${r('Sangrias', '- ' + money(summary.withdrawals))}${r('Vendas em dinheiro', money(summary.byPayment.Dinheiro || 0))}${r('Valor em caixa', money(summary.drawerCash), 'tk-b')}${r('Retirado no fechamento', money(c.withdrawal || 0))}${r('Ficou no caixa', money(c.remainingCash ?? summary.drawerCash), 'tk-b')}<div class="tk-hr"></div><div class="tk-b">RESUMO DAS VENDAS</div>${PAYS.map(pay => r(esc(pay), money(summary.byPayment[pay] || 0))).join('')}${r('TOTAL', money(summary.sales), 'tk-tot')}${category('VENDAS DELIVERY', summary.delivery, true)}${category('VENDAS MESAS', summary.tables, false)}${category('VENDAS BALCAO', summary.counter, false)}${attendants ? `<div class="tk-hr"></div><div class="tk-b">VENDAS POR ATENDENTE</div>${attendants}` : ''}${drivers ? `<div class="tk-hr"></div><div class="tk-b">TAXAS POR ENTREGADOR - EXPEDICOES</div>${drivers}` : ''}${correctionsMarkup}${driverCorrectionsMarkup}${tkEnd}`;
                 const printer = qzSettings.sectors.find(sector => sector.id === 'general')?.printerId || qzSettings.cashierPrinter;
                 if (!printer) throw new Error('Configure a impressora do setor Geral nas configurações de impressão.');
                 await ensureQzConnected();
@@ -4088,6 +4501,7 @@ R$ 130,00
             if (c) printCaixa(c);
         }
         function fecharCaixa() {
+            if (typeof deliveryEditPending !== 'undefined' && deliveryEditPending) return toast('Aguarde a edição do delivery.');
             if (deliveryDispatchPending || orderCancellationPending) return toast('Aguarde a conclusão da operação antes de fechar o caixa.');
             if (!caixaAberto()) return toast('Este caixa já está fechado.');
             const abertos = S.orders.filter(isOrderOpen).length;
@@ -4138,17 +4552,18 @@ R$ 130,00
                 try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (storageError) {
                     console.error('Não foi possível restaurar o estado local do caixa:', storageError);
                 }
-                renderAll();
+                renderAll(false);
                 syncRealtimeOnlineOrders();
                 return toast(`O caixa não foi aberto porque o Supabase não confirmou a operação: ${error.message}`);
             } finally {
                 cashStatusSyncPending = false;
             }
-            renderAll();
+            renderAll(false);
             syncRealtimeOnlineOrders();
             toast(`Caixa aberto com saldo inicial de ${money(S.caixa.initial)}.`);
         }
         async function confirmCloseCash() {
+            if (typeof deliveryEditPending !== 'undefined' && deliveryEditPending) return toast('Aguarde a edição do delivery.');
             if (deliveryDispatchPending || orderCancellationPending) return toast('Aguarde a conclusão da operação antes de fechar o caixa.');
             if (cashStatusSyncPending) return toast('Aguarde a sincronização do status do caixa.');
             if (!caixaAberto()) return toast('Este caixa já está fechado.');
@@ -4189,14 +4604,14 @@ R$ 130,00
                 try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (storageError) {
                     console.error('Não foi possível restaurar o estado local do caixa:', storageError);
                 }
-                renderAll();
+                renderAll(false);
                 syncRealtimeOnlineOrders();
                 return toast(`O caixa não foi fechado porque o Supabase não confirmou a operação: ${error.message}`);
             } finally {
                 cashStatusSyncPending = false;
             }
             closeCashModal();
-            renderAll();
+            renderAll(false);
             syncRealtimeOnlineOrders();
             toast(`Caixa ${closed.id} fechado. Abra outro quando quiser iniciar uma nova sessão.`);
             await printCaixa(closed);
@@ -4230,7 +4645,20 @@ R$ 130,00
                 return `<div class="${production && qzSettings.options.largeProductionFont ? 'tk-item tk-item-prod' : 'tk-item'}">${itemName}</div>${det(item, index)}`;
             };
             let h;
-            if (type === 'kitchen') {
+            if (type === 'kitchen' && o.editNotice) {
+                const change = o.editNotice;
+                const fields = [['Cliente', 'cli'], ['Telefone', 'tel'], ['Endereço', 'end'], ['Bairro', 'bairro']];
+                const metadata = fields.filter(([, key]) => String(change.before[key] || '') !== String(change.after[key] || ''))
+                    .map(([label, key]) => `<div class="tk-b">${label}: ${esc(change.after[key] || '—')}</div>`).join('');
+                const changedItems = items.filter(item => item.editAction);
+                const changedItemMarkup = item => `<div class="tk-b">${esc(item.editAction)}</div><div class="tk-item tk-item-prod">${Number(item.qty) || 0}x ${esc(item.name || '')}</div>${(item.det || []).map(detail => `<div class="tk-det">${esc(detail)}</div>`).join('')}${item.obs ? `<div class="tk-obs">OBS: ${esc(item.obs)}</div>` : ''}`;
+                h = top('*** ALTERAÇÃO DE PEDIDO ***')
+                    + `<div class="tk-b">ALTERADO: ${esc(new Date(change.at).toLocaleString('pt-BR'))} • ${esc(change.by)}</div>`
+                    + '<div class="tk-b">NÃO REFAZER ITENS SEM ALTERAÇÃO</div><div class="tk-hr"></div>'
+                    + (changedItems.length ? changedItems.map(changedItemMarkup).join(itemSeparator)
+                        : '<div>Sem alteração nos itens deste setor.</div>')
+                    + (metadata ? `<div class="tk-hr"></div>${metadata}` : '');
+            } else if (type === 'kitchen') {
                 h = top('*** COZINHA ***') + items.map((item, index) => renderItem({ ...item, name: String(item.name || '').toUpperCase() }, index, true)).join(itemSeparator)
                   + `<div class="tk-hr2"></div><div class="tk-c tk-sm">Total de itens: ${items.reduce((a, x) => a + (Number(x.qty) || 0), 0)}</div>`
                   + (qzSettings.kitchenMessage ? `<div class="tk-hr"></div><div class="tk-c tk-sm">${messageMarkup(qzSettings.kitchenMessage)}</div>` : '');
@@ -4251,26 +4679,28 @@ R$ 130,00
                     const quantity = Number(item.qty) || 0;
                     const price = Number(item.price) || 0;
                     const itemName = `${qzSettings.options.showItemNumber ? `${index + 1}. ` : ''}${quantity}x ${esc(item.name || '')}`;
-                    const amount = qzSettings.options.showItemPrice
+                    const amount = qzSettings.options.showItemPrice || o.accountPreview
                         ? `<span>${money(quantity * price)}</span>` : '';
                     const unitPrice = qzSettings.options.showUnitPrice
                         ? `<div class="tk-det">Preço unitário: ${money(price)}</div>` : '';
                     return `<div class="tk-row tk-b"><span>${itemName}</span>${amount}</div>${unitPrice}${det(item, index)}`;
                 }).join(itemSeparator);
-                const subtotalMarkup = qzSettings.options.showSubtotal
+                const subtotalMarkup = qzSettings.options.showSubtotal || o.accountPreview
                     ? `<div class="tk-row"><span>Subtotal</span><span>${money(subtotal)}</span></div>` : '';
-                const feesMarkup = qzSettings.options.showFees
+                const feesMarkup = qzSettings.options.showFees || o.accountPreview
                     ? (o.taxa ? `<div class="tk-row"><span>Taxa de entrega</span><span>${money(o.taxa)}</span></div>` : '')
-                        + (o.svc ? `<div class="tk-row"><span>${o.accountPreview ? 'Taxa de serviço' : `Taxa de serviço (${o.svcPct || 10}%)`}</span><span>${money(o.svc)}</span></div>` : '')
+                        + (o.svc ? `<div class="tk-row"><span>${o.accountPreview ? 'Serviço (opcional)' : `Taxa de serviço (${o.svcPct || 10}%)`}</span><span>${money(o.svc)}</span></div>` : '')
                     : '';
                 const adjustmentMarkup = (o.removedService ? `<div class="tk-row"><span>Serviço removido</span><span>${money(o.removedService)}</span></div>` : '')
                     + (o.discount ? `<div class="tk-row"><span>Desconto</span><span>- ${money(o.discount)}</span></div>` : '');
+                const optionalServiceMarkup = o.accountPreview && Number(o.svc) > 0
+                    ? `<div class="tk-row"><span>Total sem serviço</span><span>${money(Math.max(0, Number(o.total) - Number(o.svc)))}</span></div><div class="tk-c tk-sm">Serviço opcional: informe sua escolha no caixa.</div>` : '';
                 h = top(type === 'cancel' ? 'COMPROVANTE DE CANCELAMENTO' : o.accountPreview ? 'PRÉ-CONTA DA MESA' : 'COMANDA GERAL') + orderRefs + cli
                   + '<div class="tk-c tk-b">ITENS DA COMANDA</div><div class="tk-hr"></div>'
                   + itemMarkup
                   + '<div class="tk-hr2"></div><div class="tk-b">RESUMO DA CONTA</div>'
                   + subtotalMarkup + feesMarkup + adjustmentMarkup
-                  + `<div class="tk-hr2"></div><div class="tk-row tk-tot"><span>${type === 'cancel' ? 'VALOR CANCELADO' : o.accountPreview ? 'TOTAL DA CONTA' : 'TOTAL'}</span><span>${money(o.total)}</span></div><div class="tk-hr2"></div><div class="tk-c tk-b">${type === 'cancel' ? 'PEDIDO CANCELADO' : pay}</div>${type === 'cancel' ? '' : changeInfo}${tableMessage ? `<div class="tk-hr"></div><div class="tk-c tk-sm">${messageMarkup(tableMessage)}</div>` : '<div class="tk-hr"></div><div class="tk-c tk-sm">Obrigado pela preferência!</div>'}`;
+                  + `<div class="tk-hr2"></div><div class="tk-row tk-tot"><span>${type === 'cancel' ? 'VALOR CANCELADO' : o.accountPreview ? 'TOTAL DA CONTA' : 'TOTAL'}</span><span>${money(o.total)}</span></div>${optionalServiceMarkup}<div class="tk-hr2"></div><div class="tk-c tk-b">${type === 'cancel' ? 'PEDIDO CANCELADO' : pay}</div>${type === 'cancel' ? '' : changeInfo}${tableMessage ? `<div class="tk-hr"></div><div class="tk-c tk-sm">${messageMarkup(tableMessage)}</div>` : '<div class="tk-hr"></div><div class="tk-c tk-sm">Obrigado pela preferência!</div>'}`;
             }
             const qrValue = type !== 'kitchen' && qzSettings.options.printQrCode
                 ? (o.type === 'MESA' ? qzSettings.tableQr || qzSettings.standardQr : qzSettings.standardQr)
@@ -4321,6 +4751,38 @@ R$ 130,00
                 toast(`Não foi possível imprimir a comanda: ${error.message}`);
                 return false;
             }
+        }
+        function deliveryChangeItems(beforeItems, afterItems) {
+            const grouped = new Map();
+            const add = (item, direction) => {
+                const key = JSON.stringify([item.name, item.category || '', item.det || [], item.obs || '']);
+                const entry = grouped.get(key) || { item, quantity: 0 };
+                entry.quantity += direction * Number(item.qty || 0);
+                grouped.set(key, entry);
+            };
+            (beforeItems || []).forEach(item => add(item, -1));
+            (afterItems || []).forEach(item => add(item, 1));
+            return [...grouped.values()].filter(entry => entry.quantity !== 0).map(entry => ({
+                ...entry.item,
+                qty: Math.abs(entry.quantity),
+                editAction: entry.quantity < 0 ? 'REMOVER / CANCELAR' : 'ADICIONAR'
+            }));
+        }
+        async function printDeliveryChange(id, index, orderOverride = null) {
+            const order = orderOverride || S.orders.find(item => String(item.id) === String(id));
+            const change = order?.editHistory?.[index];
+            if (!order || !change?.before || !change.after) {
+                toast('Alteração não encontrada para impressão.');
+                return false;
+            }
+            const changedItems = deliveryChangeItems(change.before.items, change.after.items);
+            const jobs = changedItems.length ? changedItems : [...(change.before.items || []), ...(change.after.items || [])];
+            const printOrder = { ...order, items: jobs, editNotice: change };
+            if (!productionPrintBatches(printOrder).length) {
+                toast('Nenhum setor de produção configurado para esta alteração. Avise a cozinha.');
+                return false;
+            }
+            return printThermal('kitchen', id, printOrder);
         }
         async function printBothThermal(order) {
             const productionCopies = printCopyCount('kitchen', order);
@@ -4415,7 +4877,7 @@ R$ 130,00
             const amount = Number(normalized);
             return Number.isFinite(amount) ? amount : 0;
         }
-        function processWhatsAppOrder() {
+        async function processWhatsAppOrder() {
             const t = $('whatsapp-input').value.replace(/\r\n?/g, '\n').trim();
             const g = r => { const m = t.match(r); return m ? m[1].replace(/\*/g, '').trim() : ''; };
             const items = [];
@@ -4463,6 +4925,7 @@ R$ 130,00
             const o = { id: num && !S.orders.some(x => x.id === num) ? num : 0, type: 'DELIVERY', cli: g(/(?:👤|Cliente\s*:?)\s*\*?([^\n*]+)/i) || 'Cliente WhatsApp', tel: formatBrazilPhone(g(/📞\s*([^\n]+)/)), end: addressParts.join(' · '), bairro: neighborhood || (address.includes(',') ? address.split(',').pop().trim() : ''), items, taxa: deliveryFee, by: currentUser?.name || 'Importação WhatsApp', byId: currentUser?.id || null,
                 payPref: /pix/i.test(payment) ? 'PIX' : /dinheiro/i.test(payment) ? 'Dinheiro' : /cr[eé]dito/i.test(payment) ? 'Cartão de Crédito' : /d[eé]bito/i.test(payment) ? 'Cartão de Débito' : '' };
             if (!finalize(o, 'Pagar depois')) return;
+            if (!await save()) return toast('Não foi possível confirmar o pedido. Confira antes de tentar novamente.');
             $('whatsapp-input').value = '';
             scheduleAutomaticOrderPrint(o);
             switchTab('pedidos');

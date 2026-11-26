@@ -171,6 +171,9 @@ async function processLatestOrder() {
 
     const state = row?.data;
     const orders = state?.orders;
+    if (!Number.isSafeInteger(state?._revision)) {
+        throw new Error('A proteção de sincronização do caixa não está disponível.');
+    }
     if (!Array.isArray(orders) || orders.length === 0) return;
 
     const latestOrder = orders[orders.length - 1];
@@ -183,36 +186,33 @@ async function processLatestOrder() {
     console.log(`🖨️ Iniciando impressão automática do pedido #${text(latestOrder.id)}.`);
     await printOrder(latestOrder);
 
-    const { data: latestRow, error: latestError } = await supabase
-        .from('app_state')
-        .select('data')
-        .eq('id', STATE_ID)
-        .single();
-
-    if (latestError) throw latestError;
-    const newData = latestRow?.data;
-    if (!newData || !Array.isArray(newData.orders)) {
-        throw new Error('O estado atualizado não contém um array de pedidos.');
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const { data: latestRow, error: latestError } = await supabase
+            .from('app_state')
+            .select('data')
+            .eq('id', STATE_ID)
+            .single();
+        if (latestError) throw latestError;
+        const newData = latestRow?.data;
+        if (!newData || !Array.isArray(newData.orders) || !Number.isSafeInteger(newData._revision)) {
+            throw new Error('O estado atualizado não contém pedidos e revisão de sincronização válidos.');
+        }
+        const printedOrder = newData.orders.find(
+            order => String(order.id) === String(latestOrder.id)
+        );
+        if (!printedOrder) throw new Error(`O pedido #${text(latestOrder.id)} não foi encontrado no estado atualizado.`);
+        if (printedOrder.printedByService) return;
+        printedOrder.printedByService = true;
+        const { error: updateError } = await supabase
+            .from('app_state')
+            .update({ data: newData, updated_at: new Date().toISOString() })
+            .eq('id', STATE_ID);
+        if (!updateError) {
+            console.log(`✅ Pedido #${text(latestOrder.id)} marcado como impresso no Supabase.`);
+            return;
+        }
+        if (updateError.code !== '40001' || attempt === 4) throw updateError;
     }
-
-    const printedOrder = newData.orders.find(
-        order => String(order.id) === String(latestOrder.id)
-    );
-    if (!printedOrder) {
-        throw new Error(`O pedido #${text(latestOrder.id)} não foi encontrado no estado atualizado.`);
-    }
-    printedOrder.printedByService = true;
-
-    const { error: updateError } = await supabase
-        .from('app_state')
-        .update({
-            data: newData,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', STATE_ID);
-
-    if (updateError) throw updateError;
-    console.log(`✅ Pedido #${text(latestOrder.id)} marcado como impresso no Supabase.`);
 }
 
 let processingQueue = Promise.resolve();
