@@ -52,7 +52,7 @@
         .tk-logo { display: block; width: 38mm; max-width: 100%; height: auto; margin: 0 auto 2mm; }
         .tk-brand { color: #000; -webkit-text-fill-color: #000; font-size: 16px; font-weight: 900; letter-spacing: .3px; }
         .tk-num { font-size: 34px; font-weight: 900; line-height: 1.1; }
-        .tk-table-number { font-size: 22px; font-weight: 900; line-height: 1.1; }
+        .tk-table-number, .tk-order-number { font-size: 22px; font-weight: 900; line-height: 1.1; }
         .tk-hr { border-top: 1px dashed #000; margin: 5px 0; } .tk-hr2 { border-top: 2px solid #000; margin: 5px 0; }
         .tk-row { display: flex; justify-content: space-between; gap: 6px; }
         .tk-meta { font-size: 12px; font-weight: 700; }
@@ -383,6 +383,14 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="bg-dark-card rounded-xl border border-dark-border p-4 space-y-3">
+                    <div><h3 class="font-bold text-sm text-white">Entregadores</h3><p class="text-xs text-gray-400 mt-1">Cadastre os entregadores disponíveis para a expedição. Este cadastro não cria acesso ao sistema.</p></div>
+                    <div class="flex flex-wrap gap-2">
+                        <input id="delivery-driver-name" type="text" maxlength="80" aria-label="Nome do entregador" placeholder="Nome do entregador" class="flex-1 min-w-40 bg-dark-bg border border-dark-border rounded-lg p-2 text-xs text-gray-200">
+                        <button type="button" onclick="adicionarEntregador()" class="bg-gold-500 hover:bg-gold-600 text-black text-xs font-bold px-4 py-2 rounded-lg">Adicionar</button>
+                    </div>
+                    <div id="delivery-drivers-list" class="space-y-2"></div>
+                </div>
             </section>
 
             <!-- MÓDULO 3: NOVO PEDIDO (CARDÁPIO + CARRINHO) -->
@@ -408,7 +416,8 @@
                             <div class="grid grid-cols-2 gap-2">
                                 <input id="o-bairro" placeholder="Bairro" class="w-full bg-dark-bg border border-dark-border rounded-lg p-2 text-xs text-gray-200 focus:outline-none focus:border-gold-500">
                                 <select id="o-taxa" onchange="renderCart()" aria-label="Taxa de entrega" class="w-full bg-dark-bg border border-dark-border rounded-lg p-2 text-xs text-gray-200 focus:outline-none focus:border-gold-500">
-                                    <option value="7">Taxa entrega: R$ 7,00</option>
+                                    <option value="6">Taxa entrega: R$ 6,00</option>
+                                    <option value="7" selected>Taxa entrega: R$ 7,00</option>
                                     <option value="8">Taxa entrega: R$ 8,00</option>
                                     <option value="9">Taxa entrega: R$ 9,00</option>
                                     <option value="10">Taxa entrega: R$ 10,00</option>
@@ -422,7 +431,16 @@
                         <div id="cart-svc-row" class="hidden border-t border-dark-border pt-2"><div class="flex justify-between items-center text-xs text-gray-300"><label class="flex items-center gap-2"><input id="o-svc" type="checkbox" checked onchange="renderCart()"> Taxa de serviço (<span id="svc-pct"></span>%)</label><span id="cart-svc"></span></div></div>
                         <div class="flex justify-between font-bold text-sm text-gold-400 border-t border-dark-border pt-2"><span>TOTAL</span><span id="cart-total">R$ 0,00</span></div>
                         <div id="o-payment-row">
-                            <select id="o-pay" class="w-full bg-dark-bg border border-dark-border rounded-lg p-2 text-xs text-gray-200 focus:outline-none focus:border-gold-500"></select>
+                            <select id="o-pay" onchange="updateOrderChangePreview()" aria-label="Forma de pagamento" class="w-full bg-dark-bg border border-dark-border rounded-lg p-2 text-xs text-gray-200 focus:outline-none focus:border-gold-500"></select>
+                            <p id="o-payment-preference-note" class="hidden mt-1 text-[11px] text-gray-400">Forma prevista; o pagamento será confirmado após a entrega ou retirada.</p>
+                            <div id="o-change-options" class="hidden mt-2 space-y-2 text-xs text-gray-300">
+                                <label class="flex items-center gap-2"><input id="o-change-needed" type="checkbox" onchange="updateOrderChangePreview()"> Precisa de troco?</label>
+                                <div id="o-change-fields" class="hidden space-y-1">
+                                    <label for="o-change-for">Cliente pagará com (R$)</label>
+                                    <input id="o-change-for" type="number" min="0" step="0.01" inputmode="decimal" oninput="updateOrderChangePreview()" class="w-full bg-dark-bg border border-dark-border rounded-lg p-2 text-xs text-gray-200">
+                                    <p id="o-change-preview" class="text-gold-400" role="status"></p>
+                                </div>
+                            </div>
                         </div>
                         <p id="o-mesa-payment-note" class="hidden text-[11px] text-gray-400">A mesa continuará aberta. O pagamento será confirmado ao fechar a conta.</p>
                         <label class="flex items-center gap-2 text-xs text-gray-400"><input id="o-print" type="checkbox" checked> Imprimir comanda (cozinha e caixa)</label>
@@ -657,7 +675,7 @@
                     <button id="clear-order-history" onclick="limparHistoricoPedidos()" class="hidden bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs px-3 py-2 rounded-lg font-semibold">Limpar histórico</button>
                 </div>
 
-                <div class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+                <div class="bg-dark-card rounded-xl border border-dark-border overflow-x-auto">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-dark-bg text-gray-400 uppercase font-medium border-b border-dark-border">
                             <tr>
@@ -1535,7 +1553,7 @@ R$ 130,00
                     <div class="flex flex-wrap justify-between gap-2"><strong class="text-white">${esc(customer.name || 'Cliente')} • ${esc(customer.phone || '')}</strong><span class="text-gold-400 font-bold">${money(payload.total)}</span></div>
                     <ul class="list-disc pl-5 text-xs text-gray-300">${items}</ul>
                     ${address}
-                    <p class="text-gray-400">Pagamento: ${esc(payload.payment || 'A combinar')} · Recebido ${order.created_at ? new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                    <p class="text-gray-400">Pagamento previsto: ${esc(payload.payment || 'A combinar')}${payload.needsChange === true && typeof payload.cashChangeFor === 'number' ? ` • Troco para ${money(payload.cashChangeFor)}: ${money(payload.cashChangeFor - Number(payload.total))}` : payload.needsChange === false ? ' • Sem troco' : ''} · Recebido ${order.created_at ? new Date(order.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
                     <div class="flex gap-2 pt-1">
                         <button onclick="acceptOnlineOrder('${esc(order.id)}')" class="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500">Aceitar e enviar à cozinha</button>
                         <button onclick="rejectOnlineOrder('${esc(order.id)}')" class="rounded-lg bg-red-700 px-4 py-2 text-xs font-bold text-white hover:bg-red-600">Recusar</button>
@@ -1639,6 +1657,17 @@ R$ 130,00
                     printRequested: delegateOnlinePrint,
                     onlineOrderPrint: delegateOnlinePrint
                 };
+                if (payload.needsChange === true) {
+                    if (payload.payment !== 'Dinheiro' || typeof payload.cashChangeFor !== 'number' || !Number.isFinite(payload.cashChangeFor)
+                        || !Number.isFinite(Number(payload.total)) || payload.cashChangeFor <= Number(payload.total) || payload.cashChangeFor > 1000000
+                        || Math.abs(payload.cashChangeFor * 100 - Math.round(payload.cashChangeFor * 100)) >= 0.000001) {
+                        throw new Error('O valor de troco do pedido online é inválido.');
+                    }
+                    order.needsChange = true;
+                    order.cashChangeFor = payload.cashChangeFor;
+                } else if (payload.payment === 'Dinheiro' && payload.needsChange === false) {
+                    order.needsChange = false;
+                }
                 if (!items.length) throw new Error('O pedido online não contém itens válidos.');
                 importedOrder = finalize(order, 'Pagar depois');
                 if (!importedOrder) throw new Error('Não foi possível registrar o pedido no PDV.');
@@ -1688,6 +1717,7 @@ R$ 130,00
             });
             if (tabId === 'cardapio') renderCardapioAdmin();
             if (tabId === 'config-impressao') renderQzSettings();
+            if (tabId === 'equipe') renderEntregadores();
             if (tabId === 'novo-pedido') renderMenu();
             if (tabId === 'mesas') {
                 renderMesasGrid();
@@ -1924,6 +1954,50 @@ R$ 130,00
             }
         }
 
+        function renderEntregadores() {
+            const list = $('delivery-drivers-list');
+            list.innerHTML = (S.deliveryDrivers || []).map((driver, index) => `<div class="flex items-center justify-between gap-2 rounded-lg border border-dark-border bg-dark-bg p-2 text-xs"><span class="text-gray-200">${esc(driver.name)}</span><div class="flex gap-3"><button type="button" onclick="atualizarEntregador('editar', ${index})" class="text-gold-400">Editar</button><button type="button" onclick="atualizarEntregador('remover', ${index})" class="text-red-400">Remover</button></div></div>`).join('') || '<p class="text-xs text-gray-500">Nenhum entregador cadastrado.</p>';
+        }
+        function adicionarEntregador() { return atualizarEntregador('adicionar'); }
+        async function atualizarEntregador(action, index) {
+            if (!canManagePromotions()) return toast('Apenas administrador e gerente podem gerenciar entregadores.');
+            if (deliveryDriverUpdatePending || deliveryDispatchPending) return toast('Aguarde a conclusão da alteração anterior.');
+            const drivers = S.deliveryDrivers || [];
+            const driver = drivers[index];
+            if (action !== 'adicionar' && !driver) return toast('Entregador não encontrado.');
+            let name = action === 'adicionar' ? $('delivery-driver-name').value.trim() : driver.name;
+            if (action === 'editar') {
+                const entered = prompt('Nome do entregador:', name);
+                if (entered === null) return;
+                name = entered.trim();
+            }
+            if (action === 'remover' && !confirm(`Remover ${name} do cadastro? Os registros anteriores serão mantidos.`)) return;
+            if (action !== 'remover' && !name) return toast('Informe o nome do entregador.');
+            const snapshot = JSON.stringify(drivers);
+            deliveryDriverUpdatePending = true;
+            try {
+                if (supabaseClient && !await syncSharedState()) return toast('Não foi possível atualizar o cadastro. Verifique a conexão e tente novamente.');
+                if (JSON.stringify(S.deliveryDrivers || []) !== snapshot) return toast('O cadastro foi alterado em outro dispositivo. Confira e tente novamente.');
+                if (action !== 'remover' && S.deliveryDrivers.some((entry, i) => i !== index && entry.name.toLocaleLowerCase('pt-BR') === name.toLocaleLowerCase('pt-BR'))) {
+                    return toast('Já existe um entregador com esse nome.');
+                }
+                if (action === 'adicionar') {
+                    S.deliveryDrivers.push({ id: window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`, name });
+                } else if (action === 'editar') {
+                    S.deliveryDrivers[index].name = name;
+                } else {
+                    S.deliveryDrivers.splice(index, 1);
+                }
+                renderAll(false);
+                const saved = await save();
+                if (!saved) return toast('Não foi possível salvar o cadastro. Verifique a conexão e o armazenamento.');
+                if (action === 'adicionar') $('delivery-driver-name').value = '';
+                toast(`Cadastro atualizado${supabaseClient ? '' : ' neste dispositivo'}.`);
+            } finally {
+                deliveryDriverUpdatePending = false;
+            }
+        }
+
         // ===================== CARDÁPIO / PEDIDOS / CAIXA =====================
         const SIZES = ['Pequena', 'Média', 'Grande', 'Família'];
         const PAYS = ['Dinheiro', 'PIX', 'Cartão de Crédito', 'Cartão de Débito'];
@@ -2075,6 +2149,8 @@ R$ 130,00
             console.error('Não foi possível carregar o token do agente de impressão:', error);
         }
         let cart = [], curCat = 'Pizzas', pm = null, selectedMesa = null, selectedCashHistoryId = null, expandedOrderId = null, pendingPaymentTarget = null;
+        let mesaItemUpdatePending = false;
+        let deliveryDispatchPending = false, deliveryDriverUpdatePending = false, orderCancellationPending = false;
 
         const $ = id => document.getElementById(id);
         const money = v => 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',');
@@ -2127,6 +2203,7 @@ R$ 130,00
 
         function normalizeCaixaState() {
             S.orders = Array.isArray(S.orders) ? S.orders : [];
+            S.deliveryDrivers = Array.isArray(S.deliveryDrivers) ? S.deliveryDrivers : [];
             S.deletedOrderHistoryIds = Array.isArray(S.deletedOrderHistoryIds) ? S.deletedOrderHistoryIds.map(String) : [];
             S.deletedCashHistoryIds = Array.isArray(S.deletedCashHistoryIds) ? S.deletedCashHistoryIds.map(String) : [];
             const deletedOrderIds = new Set(S.deletedOrderHistoryIds);
@@ -2139,6 +2216,7 @@ R$ 130,00
                 .filter(session => !deletedCashIds.has(String(session.id)));
             S.caixa = S.caixa || newCaixa();
             S.caixa.movs = Array.isArray(S.caixa.movs) ? S.caixa.movs : [];
+            S.caixa.deliveries = Array.isArray(S.caixa.deliveries) ? S.caixa.deliveries : [];
             S.caixa.status = S.caixa.status || 'FECHADO';
             if (S.caixa.status !== 'FECHADO') return;
 
@@ -2830,15 +2908,30 @@ R$ 130,00
         function onTypeChange() {
             const t = $('o-type').value;
             const isMesa = t === 'MESA';
+            const deferredPayment = t === 'DELIVERY' || t === 'RETIRADA';
             $('o-mesa').classList.toggle('hidden', t !== 'MESA');
             $('o-del-box').classList.toggle('hidden', t !== 'DELIVERY');
             $('o-counter-box').classList.toggle('hidden', !['BALCAO', 'RETIRADA'].includes(t));
             $('o-payment-row').classList.toggle('hidden', isMesa);
+            $('o-payment-preference-note').classList.toggle('hidden', !deferredPayment);
             $('o-mesa-payment-note').classList.toggle('hidden', !isMesa);
             $('o-submit-label').textContent = isMesa ? 'LANÇAR PEDIDO NA MESA' : 'FINALIZAR PEDIDO';
             if (isMesa) $('o-pay').value = 'Pagar depois';
-            else if ($('o-pay').value === 'Pagar depois') $('o-pay').value = 'PIX';
             renderCart();
+        }
+        function updateOrderChangePreview() {
+            const deferred = ['DELIVERY', 'RETIRADA'].includes($('o-type').value);
+            const cash = deferred && $('o-pay').value === 'Dinheiro';
+            const needsChange = cash && $('o-change-needed').checked;
+            $('o-change-options').classList.toggle('hidden', !cash);
+            $('o-change-fields').classList.toggle('hidden', !needsChange);
+            const raw = $('o-change-for').value;
+            const totalCents = Math.round((cartSub() + cartTaxa()) * 100);
+            const amount = Number(raw);
+            const valid = /^\d+(?:\.\d{1,2})?$/.test(raw) && Number.isFinite(amount) && Math.round(amount * 100) > totalCents;
+            $('o-change-preview').textContent = valid
+                ? `Troco previsto: ${money((Math.round(amount * 100) - totalCents) / 100)}`
+                : 'Informe um valor maior que o total, com até duas casas decimais.';
         }
 
         // ---------- Cardápio (grade de itens) ----------
@@ -3009,6 +3102,7 @@ R$ 130,00
             const svc = cartSvc(), mesa = $('o-type').value === 'MESA';
             $('cart-svc-row').classList.toggle('hidden', !mesa); $('svc-pct').textContent = S.menu.svc; $('cart-svc').textContent = money(svc);
             $('cart-total').textContent = money(cartSub() + cartTaxa() + svc);
+            updateOrderChangePreview();
         }
 
         // ---------- Pedidos ----------
@@ -3029,6 +3123,7 @@ R$ 130,00
             return hours ? `${hours}h ${String(remainingMinutes).padStart(2, '0')}min` : `${minutes} min`;
         }
         function finalize(o, pay) {
+            if (o.type === 'DELIVERY' || o.serviceType === 'RETIRADA') pay = 'Pagar depois';
             if (pay && pay !== 'Pagar depois' && !caixaAberto()) {
                 toast('O caixa está fechado. Abra um novo caixa antes de receber pagamentos.');
                 return null;
@@ -3059,15 +3154,27 @@ R$ 130,00
             if (!cart.length) return toast('Adicione itens ao pedido');
             if (!currentUser) return toast('Faça login antes de lançar um pedido.');
             const type = $('o-type').value;
-            const payment = type === 'MESA' ? 'Pagar depois' : $('o-pay').value;
+            const deferredPayment = type === 'DELIVERY' || type === 'RETIRADA';
+            const payment = type === 'MESA' || deferredPayment ? 'Pagar depois' : $('o-pay').value;
             if (payment !== 'Pagar depois' && !caixaAberto()) return toast('O caixa está fechado. Abra um novo caixa antes de receber pagamentos.');
             const customerName = type === 'DELIVERY' ? $('o-cli').value.trim() :
                 ['BALCAO', 'RETIRADA'].includes(type) ? $('o-counter-cli').value.trim() : '';
             const o = { type: type === 'RETIRADA' ? 'BALCAO' : type, serviceType: type === 'RETIRADA' ? 'RETIRADA' : '', printRequested: $('o-print').checked, mesa: type === 'MESA' ? +$('o-mesa').value : null, cli: customerName, tel: type === 'DELIVERY' ? formatBrazilPhone($('o-tel').value) : '', end: $('o-end').value.trim(), bairro: $('o-bairro').value.trim(), items: cart.map(x => ({ ...x })), taxa: cartTaxa(), svc: cartSvc(), svcPct: S.menu.svc, by: currentUser.name, byId: currentUser.id };
+            if (deferredPayment && $('o-pay').value !== 'Pagar depois') o.payPref = $('o-pay').value;
+            if (deferredPayment && o.payPref === 'Dinheiro') o.needsChange = $('o-change-needed').checked;
+            if (o.needsChange) {
+                const raw = $('o-change-for').value;
+                const amount = Number(raw);
+                const totalCents = Math.round((cartSub() + cartTaxa()) * 100);
+                if (!/^\d+(?:\.\d{1,2})?$/.test(raw) || !Number.isFinite(amount) || amount > 1000000 || Math.round(amount * 100) <= totalCents) {
+                    return toast('Informe o valor para troco maior que o total, com até duas casas decimais.');
+                }
+                o.cashChangeFor = Math.round(amount * 100) / 100;
+            }
             if (type === 'DELIVERY' && (!o.cli || !o.end)) return toast('Delivery: informe nome e endereço');
             if (type === 'DELIVERY' && cliLoaded && !$('o-conf').checked) return toast('Confirme o endereço com o cliente');
             if (!finalize(o, payment)) return;
-            cart = []; ['o-cli', 'o-counter-cli', 'o-tel', 'o-end', 'o-bairro', 'o-busca'].forEach(id => $(id).value = ''); $('o-taxa').value = '7'; cliLoaded = false; $('o-conf').checked = false; $('o-conf-box').classList.add('hidden'); $('o-busca-res').classList.add('hidden'); renderCart();
+            cart = []; ['o-cli', 'o-counter-cli', 'o-tel', 'o-end', 'o-bairro', 'o-busca', 'o-change-for'].forEach(id => $(id).value = ''); $('o-taxa').value = '7'; $('o-pay').value = 'Pagar depois'; $('o-change-needed').checked = false; cliLoaded = false; $('o-conf').checked = false; $('o-conf-box').classList.add('hidden'); $('o-busca-res').classList.add('hidden'); renderCart();
             toast(`Pedido #${o.id} enviado para a cozinha`);
             if (type === 'MESA') {
                 selectedMesa = o.mesa;
@@ -3079,6 +3186,9 @@ R$ 130,00
             if (!caixaAberto()) return toast('O caixa está fechado. Abra um novo caixa antes de receber pagamentos.');
             const order = S.orders.find(item => String(item.id) === String(id));
             if (!order || order.paid || order.status === 'CANCELADO') return;
+            if ((order.type === 'DELIVERY' || order.serviceType === 'RETIRADA') && order.status !== 'PRONTO') {
+                return toast('Aguarde a expedição ou retirada antes de confirmar o pagamento.');
+            }
             if (order.type === 'MESA') {
                 const tableOrders = mesaOrders(Number(order.mesa));
                 if (!tableOrders.length) return toast('Esta mesa não possui pedidos em aberto.');
@@ -3147,11 +3257,13 @@ R$ 130,00
             pendingPaymentTarget.lastTotal = total;
             $('payment-modal-title').textContent = mesaNumber === null ? 'Receber pagamento' : `Fechar conta da Mesa ${mesaNumber}`;
             $('payment-modal-context').textContent = mesaNumber === null
-                ? `Pedido #${openOrders[0].id}`
+                ? `Pedido #${openOrders[0].id}${openOrders[0].type === 'DELIVERY' ? ' • confirme o pagamento após o retorno do entregador' : openOrders[0].serviceType === 'RETIRADA' ? ' • confirme o pagamento na retirada' : ''}`
                 : `${openOrders.length} pedido(s) em aberto • pré-conta será impressa`;
             $('payment-modal-total').textContent = money(total);
             $('payment-lines').innerHTML = '';
-            addPaymentLine('Dinheiro', total);
+            const preference = openOrders[0].payPref;
+            const preferredMethod = PAYS.find(method => method.toLowerCase() === String(preference || '').toLowerCase());
+            addPaymentLine(mesaNumber === null && preferredMethod ? preferredMethod : 'Dinheiro', total);
             $('payment-error').classList.add('hidden');
             $('payment-modal').classList.remove('hidden');
             $('payment-modal').classList.add('flex');
@@ -3277,6 +3389,7 @@ R$ 130,00
             pendingPaymentTarget = null;
         }
         function confirmOrderPayment() {
+            if (orderCancellationPending) return toast('Aguarde a conclusão do cancelamento.');
             if (!pendingPaymentTarget) return;
             if (!caixaAberto()) return toast('O caixa está fechado. Abra um novo caixa antes de receber pagamentos.');
             const orders = pendingPaymentTarget.mesaNumber === null
@@ -3286,6 +3399,9 @@ R$ 130,00
                 closePaymentModal();
                 return toast('Os pedidos desta conta já foram pagos ou cancelados.');
             }
+            if (orders.some(order => (order.type === 'DELIVERY' || order.serviceType === 'RETIRADA') && order.status !== 'PRONTO')) {
+                return toast('Aguarde a expedição ou retirada antes de confirmar o pagamento.');
+            }
             const { result, adjustments } = readPaymentDraft();
             if (result.error) return toast(result.error);
             if (result.remainingCents !== 0) {
@@ -3293,6 +3409,7 @@ R$ 130,00
                 $('payment-error').classList.remove('hidden');
                 return;
             }
+            if (orders.some(order => order.type === 'DELIVERY') && !confirm('O entregador já retornou e o pagamento informado foi recebido?')) return;
             const payments = result.payments;
             const orderBalances = orders.map((order, index) => Math.round(Number(order.total || 0) * 100)
                 - (adjustments?.removeService ? Math.round(Number(order.svc || 0) * 100) : 0)
@@ -3332,8 +3449,10 @@ R$ 130,00
                 order.paymentDetails = orderPayments;
                 order.change = 0;
                 order.paidAt = timestamp;
-                order.status = 'PRONTO';
-                order.readyAt = timestamp;
+                if (order.type !== 'DELIVERY' || order.status !== 'PENDENTE') {
+                    order.status = 'PRONTO';
+                    order.readyAt = order.readyAt || timestamp;
+                }
                 if (!orderPayments.length && order.total === 0) orderPayments.push({ method: '', amount: 0 });
                 orderPayments.forEach(payment => {
                     const movement = {
@@ -3358,23 +3477,127 @@ R$ 130,00
             const tableNumber = pendingPaymentTarget.mesaNumber;
             closePaymentModal();
             renderAll();
-            const readyItems = orders.reduce((count, order) =>
+            const readyItems = orders.filter(order => order.status === 'PRONTO').reduce((count, order) =>
                 count + (order.items || []).reduce((itemCount, item) => itemCount + (Number(item.qty) || 0), 0), 0);
-            toast(`${tableNumber === null ? 'Pedido recebido' : `Conta da Mesa ${tableNumber} paga`}. ${readyItems} produto(s) pronto(s) e removido(s) do KDS. Troco: ${money(result.changeCents / 100)}.`);
+            const deliveryPending = orders.some(order => order.type === 'DELIVERY' && order.status === 'PENDENTE');
+            toast(`${tableNumber === null ? 'Pedido recebido' : `Conta da Mesa ${tableNumber} paga`}. ${deliveryPending ? 'Delivery permanece na cozinha até a expedição.' : `${readyItems} produto(s) pronto(s) e removido(s) do KDS.`} Troco: ${money(result.changeCents / 100)}.`);
         }
-        function cancelOrder(id) {
-            const order = S.orders.find(item => item.id === id);
-            if (!order || order.paid || !confirm(`Cancelar pedido #${id}?`)) return;
-            order.status = 'CANCELADO';
-            renderAll();
-            if (qzSettings.options.printCancellation) printThermal('cancel', id);
+        function cancelOrder(id) { return cancelOrderAsync(id); }
+        async function cancelOrderAsync(id) {
+            if (orderCancellationPending || deliveryDispatchPending || cashStatusSyncPending) return toast('Aguarde a conclusão da operação em andamento.');
+            if (!currentUser) return toast('Faça login antes de cancelar um pedido.');
+            const order = S.orders.find(item => String(item.id) === String(id));
+            if (!order || order.status === 'CANCELADO') return toast('Este pedido não está disponível para cancelamento.');
+            const correctablePayment = order.type === 'DELIVERY' || (order.type === 'BALCAO' && order.serviceType === 'RETIRADA');
+            if (correctablePayment && order.status !== 'PENDENTE') return toast('Delivery e retirada só podem ser cancelados enquanto estiverem em produção.');
+            if (order.paid && !correctablePayment) return toast('Este pedido já foi pago e não pode ser cancelado por esta opção.');
+            const matchesOrder = entry => String(entry.orderId ?? (entry.desc || '').match(/Pedido Nº (\d+)/)?.[1]) === String(id);
+            const closedSessions = (S.caixaHistory || []).filter(session =>
+                (session.deliveries || []).some(matchesOrder) ||
+                (order.paid && (session.movs || []).some(movement => movement.type === 'Venda' && matchesOrder(movement))));
+            if (closedSessions.length) return toast('Este pedido possui lançamentos em um caixa fechado. Faça a correção manual; o histórico não será alterado.');
+            const deliveries = (S.caixa.deliveries || []).filter(matchesOrder);
+            if (order.deliveryDriver && !deliveries.length) return toast('O registro da entrega não foi encontrado no caixa atual. Faça a correção manual antes de cancelar.');
+            if (deliveries.length && !caixaAberto()) return toast('A entrega pertence a um caixa fechado. Faça a correção manual antes de cancelar.');
+            const sales = (S.caixa.movs || []).filter(movement => movement.type === 'Venda' && matchesOrder(movement));
+            if (order.paid) {
+                if (!caixaAberto()) return toast('Abra o caixa e faça a correção manual se o pagamento pertence a uma sessão encerrada.');
+                const totalCents = Math.round(Number(order.total) * 100);
+                if (!sales.length || !Number.isFinite(totalCents) || sales.some(movement => !Number.isFinite(Number(movement.v)) || Number(movement.v) < 0)
+                    || sales.reduce((sum, movement) => sum + Math.round(Number(movement.v) * 100), 0) !== totalCents) {
+                    return toast('Não foi possível conferir o pagamento no caixa atual. Faça a correção manual antes de cancelar.');
+                }
+            }
+            const message = order.paid
+                ? `O pedido #${id} está registrado como pago. Confirme que o valor NÃO foi recebido: o registro de venda será cancelado no caixa atual. Esta ação não devolve dinheiro.`
+                : `Cancelar pedido #${id}?`;
+            const deliveryMessage = deliveries.length ? '\nA taxa será removida do relatório do entregador.' : '';
+            const onlineMessage = order.onlineOrderId ? '\nO status no cardápio online não será alterado; avise o cliente.' : '';
+            if (!confirm(`${message}${deliveryMessage}${onlineMessage}\n\nAvise a cozinha se já recebeu a comanda impressa.`)) return;
+            const snapshot = JSON.stringify({ order, caixa: S.caixa, history: S.caixaHistory });
+            orderCancellationPending = true;
+            try {
+                if (supabaseClient && !await syncSharedState()) return toast('Não foi possível atualizar os pedidos. Verifique a conexão e tente novamente.');
+                const currentOrder = S.orders.find(item => String(item.id) === String(id));
+                if (!currentOrder || JSON.stringify({ order: currentOrder, caixa: S.caixa, history: S.caixaHistory }) !== snapshot || cashStatusSyncPending) {
+                    return toast('O pedido ou caixa foi alterado em outro dispositivo. Confira e tente novamente.');
+                }
+                const timestamp = Date.now();
+                if (currentOrder.paid) {
+                    (S.caixa.movs || []).filter(movement => movement.type === 'Venda' && matchesOrder(movement)).forEach(movement => {
+                        movement.type = 'Venda cancelada';
+                        movement.cancelledAt = timestamp;
+                        movement.cancelledBy = currentUser.name;
+                    });
+                    currentOrder.paid = false;
+                    currentOrder.paymentCorrection = { at: timestamp, by: currentUser.name, reason: 'Pagamento não recebido' };
+                }
+                const removedDeliveries = (S.caixa.deliveries || []).filter(matchesOrder);
+                if (removedDeliveries.length) {
+                    currentOrder.cancelledDeliveries = removedDeliveries;
+                    S.caixa.deliveries = S.caixa.deliveries.filter(entry => !matchesOrder(entry));
+                }
+                currentOrder.status = 'CANCELADO';
+                currentOrder.cancelledAt = timestamp;
+                currentOrder.cancelledBy = currentUser.name;
+                renderAll(false);
+                const saved = await save();
+                if (!saved) return toast('Não foi possível salvar o cancelamento. Verifique a conexão e o armazenamento.');
+                toast(`Pedido cancelado${supabaseClient ? '' : ' neste dispositivo'}. Avise a cozinha.`);
+                if (qzSettings.options.printCancellation) printThermal('cancel', id);
+            } finally {
+                orderCancellationPending = false;
+            }
         }
-        function kdsDone(id) { const o = S.orders.find(x => x.id === id); if (o) { o.status = 'PRONTO'; renderAll(); } }
+        async function kdsDone(id) {
+            if (deliveryDispatchPending || deliveryDriverUpdatePending || orderCancellationPending) return toast('Aguarde a conclusão da alteração anterior.');
+            const order = S.orders.find(item => String(item.id) === String(id));
+            if (!order || order.status !== 'PENDENTE') return toast('Este pedido não está mais pendente.');
+            if (order.type !== 'DELIVERY') {
+                order.status = 'PRONTO';
+                renderAll();
+                return;
+            }
+            if (!currentUser) return toast('Faça login antes de expedir o pedido.');
+            if (!caixaAberto()) return toast('Abra o caixa antes de expedir o delivery.');
+            const driverId = $(`delivery-driver-${id}`)?.value;
+            const driver = (S.deliveryDrivers || []).find(entry => entry.id === driverId);
+            if (!driver) return toast('Selecione um entregador cadastrado antes de expedir.');
+            const snapshot = JSON.stringify(order);
+            const driverSnapshot = JSON.stringify(driver);
+            const cashId = S.caixa.id;
+            deliveryDispatchPending = true;
+            try {
+                if (supabaseClient && !await syncSharedState()) return toast('Não foi possível atualizar os pedidos. Verifique a conexão e tente novamente.');
+                const currentOrder = S.orders.find(entry => String(entry.id) === String(id));
+                const currentDriver = (S.deliveryDrivers || []).find(entry => entry.id === driverId);
+                if (!currentOrder || JSON.stringify(currentOrder) !== snapshot || !currentDriver || JSON.stringify(currentDriver) !== driverSnapshot) {
+                    return toast('O pedido ou entregador foi alterado em outro dispositivo. Confira e tente novamente.');
+                }
+                if (!caixaAberto() || S.caixa.id !== cashId || cashStatusSyncPending) return toast('O caixa foi alterado. Confira a sessão antes de expedir.');
+                const fee = Number(currentOrder.taxa || 0);
+                if (!Number.isFinite(fee) || fee < 0) return toast('A taxa de entrega do pedido é inválida. Corrija o pedido antes de expedir.');
+                S.caixa.deliveries = S.caixa.deliveries || [];
+                if (S.caixa.deliveries.some(entry => String(entry.orderId) === String(id))) return toast('Esta entrega já foi registrada neste caixa.');
+                const timestamp = Date.now();
+                currentOrder.status = 'PRONTO';
+                currentOrder.readyAt = timestamp;
+                currentOrder.deliveryDriver = { id: currentDriver.id, name: currentDriver.name };
+                S.caixa.deliveries.push({ orderId: currentOrder.id, driverId: currentDriver.id, driverName: currentDriver.name, fee, at: timestamp });
+                renderAll(false);
+                const saved = await save();
+                if (!saved) return toast('Não foi possível salvar a expedição. Verifique a conexão e o armazenamento.');
+                toast(`Pedido expedido para ${currentDriver.name}${supabaseClient ? '' : ' neste dispositivo'}.`);
+            } finally {
+                deliveryDispatchPending = false;
+            }
+        }
         function stLabel(o) {
             if (o.status === 'CANCELADO') return ['Cancelado', 'red'];
             if (o.paid && o.status !== 'PENDENTE') return ['Concluído', 'emerald'];
             if (o.type === 'MESA') return o.paid ? ['Concluído', 'emerald'] : ['Aberta', 'gold'];
             if (o.status === 'PENDENTE') return ['Em preparação', 'gold'];
+            if (o.type === 'DELIVERY' && o.deliveryDriver) return ['Em entrega • a receber', 'sky'];
             return ['Pronto • a receber', 'sky'];
         }
         function renderAll(persist = true) {
@@ -3383,6 +3606,7 @@ R$ 130,00
             renderMesasGrid();
             renderCaixaLedger();
             renderCaixaHistory();
+            renderEntregadores();
             if (persist) save();
         }
 
@@ -3390,6 +3614,9 @@ R$ 130,00
             $('clear-order-history').classList.toggle('hidden', !canClearOrderHistory());
             $('orders-list-body').innerHTML = S.orders.slice().reverse().map(o => {
                 const [l, c] = stLabel(o), live = o.status !== 'CANCELADO';
+                const deferred = o.type === 'DELIVERY' || o.serviceType === 'RETIRADA';
+                const canReceive = isOrderOpen(o) && (!deferred || o.status === 'PRONTO');
+                const canCancel = live && (deferred ? o.status === 'PENDENTE' : !o.paid);
                 const items = (o.items || []).map(item => `
                     <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-1 border-b border-dark-border py-2 last:border-b-0">
                         <div>
@@ -3404,6 +3631,7 @@ R$ 130,00
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-400">
                             <div>Pedido criado: <span class="text-gray-200">${o.at ? new Date(o.at).toLocaleString('pt-BR') : '—'}</span></div>
                             <div>Atendente: <span class="text-gray-200">${esc(o.by || '—')}</span></div>
+                            ${o.deliveryDriver ? `<div>Entregador: <span class="text-gray-200">${esc(o.deliveryDriver.name)}</span></div>` : ''}
                             ${o.cli ? `<div>Cliente: <span class="text-gray-200">${esc(o.cli)}</span></div>` : ''}
                             ${o.type === 'DELIVERY' ? `<div>Telefone: <span class="text-gray-200">${esc(o.tel || '—')}</span></div><div>Endereço: <span class="text-gray-200">${esc(o.end || '—')}</span></div><div>Bairro: <span class="text-gray-200">${esc(o.bairro || '—')}</span></div>` : ''}
                         </div>
@@ -3415,19 +3643,20 @@ R$ 130,00
                             ${o.removedService ? `<div class="flex justify-between"><span>Serviço removido</span><span>${money(o.removedService)}</span></div>` : ''}
                             ${o.discount ? `<div class="flex justify-between"><span>Desconto</span><span>- ${money(o.discount)}</span></div>` : ''}
                             <div class="flex justify-between font-bold text-white"><span>Total</span><span class="text-gold-400">${money(o.total)}</span></div>
-                            <div class="flex justify-between"><span>Pagamento</span><span>${esc(o.paid ? o.pay : o.payPref || 'A receber')}</span></div>
+                            <div class="flex justify-between"><span>Pagamento</span><span>${esc(o.paymentCorrection ? 'Registro cancelado: não recebido' : o.paid ? o.pay : o.payPref || 'A receber')}</span></div>
+                            ${!o.paid && o.cashChangeFor ? `<div class="flex justify-between"><span>Troco previsto para ${money(o.cashChangeFor)}</span><span>${money(o.cashChangeFor - o.total)}</span></div>` : ''}
                             ${o.paid && o.change ? `<div class="flex justify-between"><span>Troco</span><span>${money(o.change)}</span></div>` : ''}
                         </div>
-                        ${isOrderOpen(o) ? `<div class="flex justify-end border-t border-dark-border pt-3"><button type="button" onclick="receive(${o.id})" class="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-black hover:bg-emerald-600">${o.type === 'MESA' ? 'Fechar conta da mesa' : 'Fechar conta / Receber'}</button></div>` : ''}
+                        ${canReceive ? `<div class="flex justify-end border-t border-dark-border pt-3"><button type="button" onclick="receive(${o.id})" class="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-bold text-black hover:bg-emerald-600">${o.type === 'MESA' ? 'Fechar conta da mesa' : 'Fechar conta / Receber'}</button></div>` : ''}
                     </div>
                 </td></tr>`;
-                return `<tr class="hover:bg-dark-hover"><td class="p-3 font-bold text-gold-500">#${o.id}</td><td class="p-3 font-medium text-white">${esc(o.type === 'DELIVERY' ? o.cli : where(o))}${o.type !== 'DELIVERY' && o.cli ? `<div class="text-[10px] text-gray-300">${esc(o.cli)}</div>` : ''}<div class="text-[10px] text-gray-500">${esc(o.by || '')}</div></td><td class="p-3 text-gray-400">${esc(o.bairro || '-')}</td><td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-${c}-500/10 text-${c}-400">${l}</span>${o.paid ? `<div class="text-[10px] text-gray-500 mt-1">${esc(o.pay)}</div>` : ''}</td><td class="p-3 font-bold text-white">${money(o.total)}</td><td class="p-3 text-right whitespace-nowrap"><div class="inline-flex items-center gap-1"><button onclick="toggleOrderDetails(${o.id})" aria-label="${expandedOrderId === o.id ? 'Ocultar' : 'Ver'} pedido ${o.id}" title="${expandedOrderId === o.id ? 'Ocultar pedido' : 'Ver pedido'}" class="bg-dark-bg border border-dark-border text-xs p-1.5 rounded hover:border-gold-500"><i data-lucide="${expandedOrderId === o.id ? 'chevron-up' : 'list'}" class="w-4 h-4"></i></button><button onclick="printThermal('kitchen',${o.id})" aria-label="Reimprimir comanda da cozinha do pedido ${o.id}" title="Reimprimir cozinha" class="bg-dark-bg border border-dark-border text-xs p-1.5 rounded hover:border-gold-500"><i data-lucide="chef-hat" class="w-4 h-4"></i></button><button onclick="printThermal('caixa',${o.id})" aria-label="Reimprimir comanda geral do pedido ${o.id}" title="Reimprimir comanda geral" class="bg-dark-bg border border-dark-border text-xs p-1.5 rounded hover:border-gold-500"><i data-lucide="printer" class="w-4 h-4"></i></button>${live && !o.paid ? `<button onclick="receive(${o.id})" class="bg-gold-500 text-black text-xs font-bold px-2 py-1 rounded">${o.type === 'MESA' ? 'Fechar conta' : 'Receber'}</button><button onclick="cancelOrder(${o.id})" aria-label="Cancelar pedido ${o.id}" title="Cancelar pedido" class="text-red-400 text-xs px-1">✕</button>` : ''}</div></td></tr>${expandedOrderId === o.id ? details : ''}`;
+                return `<tr class="hover:bg-dark-hover"><td class="p-3 font-bold text-gold-500">#${o.id}</td><td class="p-3 font-medium text-white">${esc(o.type === 'DELIVERY' ? o.cli : where(o))}${o.type !== 'DELIVERY' && o.cli ? `<div class="text-[10px] text-gray-300">${esc(o.cli)}</div>` : ''}<div class="text-[10px] text-gray-500">${esc(o.by || '')}</div></td><td class="p-3 text-gray-400">${esc(o.bairro || '-')}</td><td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-${c}-500/10 text-${c}-400">${l}</span>${o.paid ? `<div class="text-[10px] text-gray-500 mt-1">${esc(o.pay)}</div>` : ''}</td><td class="p-3 font-bold text-white">${money(o.total)}</td><td class="p-3 text-right whitespace-nowrap"><div class="inline-flex items-center gap-1"><button onclick="toggleOrderDetails(${o.id})" aria-label="${expandedOrderId === o.id ? 'Ocultar' : 'Ver'} pedido ${o.id}" title="${expandedOrderId === o.id ? 'Ocultar pedido' : 'Ver pedido'}" class="bg-dark-bg border border-dark-border text-xs p-1.5 rounded hover:border-gold-500"><i data-lucide="${expandedOrderId === o.id ? 'chevron-up' : 'list'}" class="w-4 h-4"></i></button><button onclick="printThermal('kitchen',${o.id})" aria-label="Reimprimir comanda da cozinha do pedido ${o.id}" title="Reimprimir cozinha" class="bg-dark-bg border border-dark-border text-xs p-1.5 rounded hover:border-gold-500"><i data-lucide="chef-hat" class="w-4 h-4"></i></button><button onclick="printThermal('caixa',${o.id})" aria-label="Reimprimir comanda geral do pedido ${o.id}" title="Reimprimir comanda geral" class="bg-dark-bg border border-dark-border text-xs p-1.5 rounded hover:border-gold-500"><i data-lucide="printer" class="w-4 h-4"></i></button>${canReceive ? `<button onclick="receive(${o.id})" class="bg-gold-500 text-black text-xs font-bold px-2 py-1 rounded">${o.type === 'MESA' ? 'Fechar conta' : 'Receber'}</button>` : ''}${canCancel ? `<button onclick="cancelOrder(${o.id})" aria-label="Cancelar pedido ${o.id}" title="Cancelar pedido" class="rounded border border-red-500/40 px-2 py-1 text-red-400 text-xs hover:bg-red-500/10">Cancelar</button>` : ''}</div></td></tr>${expandedOrderId === o.id ? details : ''}`;
             }).join('') || '<tr><td colspan="6" class="p-6 text-center text-gray-500">Nenhum pedido ainda</td></tr>';
             lucide.createIcons();
         }
         function limparHistoricoPedidos() {
             if (!isAdmin()) return toast('Somente o administrador pode limpar o histórico de pedidos.');
-            const historicalOrders = S.orders.filter(order => !isOrderOpen(order));
+            const historicalOrders = S.orders.filter(order => !isOrderOpen(order) && !(order.type === 'DELIVERY' && order.paid && order.status === 'PENDENTE'));
             if (!historicalOrders.length) return toast('Não há pedidos concluídos ou cancelados para limpar.');
             if (!confirm(`Serão removidos ${historicalOrders.length} pedido(s) concluído(s) ou cancelado(s). Pedidos em preparação ou aguardando pagamento serão mantidos. Deseja continuar?`)) return;
 
@@ -3457,7 +3686,7 @@ R$ 130,00
                 });
             });
 
-            S.orders = S.orders.filter(isOrderOpen);
+            S.orders = S.orders.filter(order => isOrderOpen(order) || (order.type === 'DELIVERY' && order.paid && order.status === 'PENDENTE'));
             expandedOrderId = null;
             renderAll(false);
             save().then(saved => {
@@ -3472,9 +3701,11 @@ R$ 130,00
         }
         function renderKDS() {
             const p = S.orders.filter(o => o.status === 'PENDENTE');
+            const selectedDrivers = new Map(Array.from(document.querySelectorAll('[data-delivery-driver]'), select => [select.dataset.deliveryDriver, select.value]));
             $('kds-count').textContent = p.length + (p.length === 1 ? ' Pedido Pendente' : ' Pedidos Pendentes');
             $('kds-cards-container').innerHTML = p.map(o => { const min = orderAgeMinutes(o);
-                return `<div class="bg-dark-card rounded-xl border border-gold-500/40 p-4 space-y-3"><div class="flex justify-between items-center border-b border-dark-border pb-2"><span class="text-lg font-bold text-white">${where(o)} <span class="text-xs text-gray-500">#${o.id}</span></span><span class="text-xs ${min > ORDER_DELAY_MINUTES ? 'bg-red-500/20 text-red-400' : 'bg-gold-500/20 text-gold-400'} px-2 py-0.5 rounded font-mono font-bold">${formatOrderAge(min)}</span></div><div class="text-xs text-gray-300 space-y-2">${o.items.map(x => `<div><div class="font-bold text-gold-400">${x.qty}x ${esc(x.name)}</div>${x.det.map(d => `<div class="pl-2 border-l-2 border-dark-border text-gray-400">${esc(d)}</div>`).join('')}${x.obs ? `<div class="pl-2 text-amber-400">OBS: ${esc(x.obs)}</div>` : ''}</div>`).join('')}</div><button onclick="kdsDone(${o.id})" class="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold py-2 rounded text-xs transition">PRONTO / EXPEDIR</button></div>`; }).join('') || '<p class="text-xs text-gray-500">Nenhum pedido pendente.</p>';
+                const driverOptions = (S.deliveryDrivers || []).map(driver => `<option value="${esc(driver.id)}" ${selectedDrivers.get(String(o.id)) === String(driver.id) ? 'selected' : ''}>${esc(driver.name)}</option>`).join('');
+                return `<div class="bg-dark-card rounded-xl border border-gold-500/40 p-4 space-y-3"><div class="flex justify-between items-center border-b border-dark-border pb-2"><span class="text-lg font-bold text-white">${where(o)} <span class="text-xs text-gray-500">#${o.id}</span></span><span class="text-xs ${min > ORDER_DELAY_MINUTES ? 'bg-red-500/20 text-red-400' : 'bg-gold-500/20 text-gold-400'} px-2 py-0.5 rounded font-mono font-bold">${formatOrderAge(min)}</span></div><div class="text-xs text-gray-300 space-y-2">${o.items.map(x => `<div><div class="font-bold text-gold-400">${x.qty}x ${esc(x.name)}</div>${x.det.map(d => `<div class="pl-2 border-l-2 border-dark-border text-gray-400">${esc(d)}</div>`).join('')}${x.obs ? `<div class="pl-2 text-amber-400">OBS: ${esc(x.obs)}</div>` : ''}</div>`).join('')}</div>${o.type === 'DELIVERY' ? `<label class="block text-xs text-gray-300">Entregador<select id="delivery-driver-${o.id}" data-delivery-driver="${o.id}" class="mt-1 w-full bg-dark-bg border border-dark-border rounded-lg p-2 text-xs text-gray-200"><option value="">Selecione o entregador</option>${driverOptions}</select></label>${driverOptions ? '' : '<p class="text-xs text-amber-400">Cadastre entregadores em Gestão de Equipe.</p>'}${o.paid ? '<p class="text-xs text-emerald-400">Pedido pago • aguardando expedição</p>' : ''}` : ''}<button onclick="kdsDone(${o.id})" class="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-bold py-2 rounded text-xs transition">PRONTO / EXPEDIR</button></div>`; }).join('') || '<p class="text-xs text-gray-500">Nenhum pedido pendente.</p>';
         }
 
         // ---------- Mesas ----------
@@ -3559,7 +3790,7 @@ R$ 130,00
                         <span data-order-age="${orderCreatedAt(o) || Date.now()}" class="text-right ${delayed ? 'text-red-400' : 'text-gray-400'}">${delayed ? 'ATRASADO • ' : ''}${formatOrderAge(ageMinutes)}<span class="block text-gray-500">${new Date(o.at).toLocaleString('pt-BR')}</span></span>
                     </div>
                     <div class="text-[10px] text-gray-500">Atendido por ${esc(o.by || '—')} • ${esc(stLabel(o)[0])}</div>
-                    ${o.items.map(x => `<div class="text-xs"><div class="flex justify-between gap-2"><span class="font-semibold text-gray-200">${x.qty}x ${esc(x.name)}</span><span class="text-gold-400 whitespace-nowrap">${money(x.qty * x.price)}</span></div>${x.det.map(d => `<div class="pl-2 text-gray-400">- ${esc(d)}</div>`).join('')}${x.obs ? `<div class="pl-2 text-amber-400">Obs: ${esc(x.obs)}</div>` : ''}</div>`).join('')}
+                    ${o.items.map((x, index) => `<div class="text-xs"><div class="flex justify-between gap-2"><span class="font-semibold text-gray-200">${x.qty}x ${esc(x.name)}</span><span class="text-gold-400 whitespace-nowrap">${money(x.qty * x.price)}</span></div>${x.det.map(d => `<div class="pl-2 text-gray-400">- ${esc(d)}</div>`).join('')}${x.obs ? `<div class="pl-2 text-amber-400">Obs: ${esc(x.obs)}</div>` : ''}<div class="flex flex-wrap gap-3 mt-1">${Number(x.qty) > 1 ? `<button type="button" onclick="removerItemMesa(${o.id}, ${index}, false)" aria-label="Remover uma unidade de ${esc(x.name)} do pedido ${o.id}" class="text-gray-300 hover:text-white">− 1 unidade</button>` : ''}<button type="button" onclick="removerItemMesa(${o.id}, ${index}, true)" aria-label="Remover ${esc(x.name)} do pedido ${o.id}" class="text-red-400 hover:text-red-300">Remover item</button></div></div>`).join('')}
                     ${(o.taxa || o.svc) ? `<div class="space-y-1 border-t border-dark-border pt-2 text-xs">${o.taxa ? `<div class="flex justify-between text-gray-400"><span>Taxa de entrega</span><span>${money(o.taxa)}</span></div>` : ''}${o.svc ? `<div class="flex justify-between text-gray-400"><span>Serviço</span><span>${money(o.svc)}</span></div>` : ''}</div>` : ''}
                     <div class="flex justify-between text-xs font-bold text-white"><span>Total do pedido</span><span>${money(o.total)}</span></div>
                 </div>`;
@@ -3569,6 +3800,53 @@ R$ 130,00
                 ${orders.length ? `<div class="mesa-orders-list max-h-[55vh] overflow-y-auto pr-1 space-y-3">${items}</div><div class="border-t border-dark-border pt-3 flex justify-between font-bold text-white"><span>TOTAL DA CONTA</span><span class="text-gold-400">${money(total)}</span></div>
                 <button onclick="fecharMesa(${selectedMesa})" class="w-full bg-emerald-500 hover:bg-emerald-600 text-black text-xs font-bold py-2.5 rounded-lg transition">FECHAR MESA / RECEBER CONTA</button>` : '<p class="text-xs text-gray-400">Esta mesa não possui pedidos em aberto.</p>'}
                 <button onclick="adicionarItensMesa(${selectedMesa})" class="mesa-details-add-order w-full bg-dark-bg border border-dark-border hover:border-gold-500 text-gray-200 text-xs font-semibold py-2.5 rounded-lg transition">ADICIONAR ITENS À MESA</button>`;
+        }
+        async function removerItemMesa(id, index, removerTudo) {
+            if (mesaItemUpdatePending) return toast('Aguarde a conclusão da alteração anterior.');
+            if (!currentUser) return toast('Faça login antes de alterar um pedido.');
+            const order = S.orders.find(item => String(item.id) === String(id));
+            const item = order?.items?.[index];
+            if (!order || order.type !== 'MESA' || Number(order.mesa) !== selectedMesa || !isOrderOpen(order) || !item) {
+                return toast('O item não está mais disponível para alteração.');
+            }
+            const removesLine = removerTudo || Number(item.qty) <= 1;
+            const cancelsOrder = removesLine && order.items.length === 1;
+            const quantity = removesLine ? Number(item.qty) : 1;
+            if (!confirm(`Remover ${quantity}x ${item.name} do pedido #${id}?${cancelsOrder ? ' O pedido será cancelado, pois ficará sem itens.' : ''}\n\nAvise a cozinha caso já tenha recebido a comanda impressa.`)) return;
+
+            const snapshot = JSON.stringify(order);
+            mesaItemUpdatePending = true;
+            try {
+                if (supabaseClient && !await syncSharedState()) {
+                    return toast('Não foi possível atualizar os pedidos. Verifique a conexão e tente novamente.');
+                }
+                const currentOrder = S.orders.find(entry => String(entry.id) === String(id));
+                if (!currentOrder || JSON.stringify(currentOrder) !== snapshot || !isOrderOpen(currentOrder)) {
+                    return toast('O pedido foi alterado em outro dispositivo. Confira os itens e tente novamente.');
+                }
+                if (cancelsOrder) {
+                    currentOrder.status = 'CANCELADO';
+                } else {
+                    const oldSub = currentOrder.items.reduce((sum, entry) => sum + Number(entry.qty) * Number(entry.price), 0);
+                    const oldService = Number(currentOrder.svc) || 0;
+                    const servicePct = Number(currentOrder.svcPct);
+                    if (removesLine) currentOrder.items.splice(index, 1);
+                    else currentOrder.items[index].qty = Number(currentOrder.items[index].qty) - 1;
+                    currentOrder.sub = +currentOrder.items.reduce((sum, entry) => sum + Number(entry.qty) * Number(entry.price), 0).toFixed(2);
+                    const serviceRate = oldService > 0
+                        ? (Number.isFinite(servicePct) && servicePct > 0 ? servicePct / 100 : oldSub > 0 ? oldService / oldSub : 0)
+                        : 0;
+                    currentOrder.svc = +(currentOrder.sub * serviceRate).toFixed(2);
+                    currentOrder.total = +(currentOrder.sub + (Number(currentOrder.taxa) || 0) + currentOrder.svc).toFixed(2);
+                }
+                renderAll(false);
+                const saved = await save();
+                if (!saved) return toast('Não foi possível salvar a alteração. Verifique a conexão e o armazenamento.');
+                toast(`${cancelsOrder ? 'Pedido cancelado' : 'Item atualizado'}${supabaseClient ? '' : ' neste dispositivo'}. Avise a cozinha sobre a alteração.`);
+                if (cancelsOrder && qzSettings.options.printCancellation) printThermal('cancel', id);
+            } finally {
+                mesaItemUpdatePending = false;
+            }
         }
         function adicionarItensMesa(n) {
             $('o-type').value = 'MESA';
@@ -3597,8 +3875,20 @@ R$ 130,00
                 delivery: { total: 0, products: 0, deliveryFee: 0, serviceFee: 0, byPayment: Object.fromEntries(PAYS.map(pay => [pay, 0])) },
                 tables: { total: 0, products: 0, deliveryFee: 0, serviceFee: 0, byPayment: Object.fromEntries(PAYS.map(pay => [pay, 0])) },
                 counter: { total: 0, products: 0, deliveryFee: 0, serviceFee: 0, byPayment: Object.fromEntries(PAYS.map(pay => [pay, 0])) },
-                attendants: {}
+                attendants: {},
+                deliveryDrivers: []
             };
+
+            const deliveryDrivers = new Map();
+            (c.deliveries || []).forEach(delivery => {
+                const key = String(delivery.driverId);
+                const entry = deliveryDrivers.get(key) || { name: delivery.driverName, count: 0, feeCents: 0 };
+                entry.name = delivery.driverName;
+                entry.count++;
+                entry.feeCents += Math.round(Number(delivery.fee) * 100);
+                deliveryDrivers.set(key, entry);
+            });
+            summary.deliveryDrivers = Array.from(deliveryDrivers.values(), entry => ({ name: entry.name, count: entry.count, fee: entry.feeCents / 100 }));
 
             const countedOrders = new Set();
             sales.forEach(m => {
@@ -3641,6 +3931,7 @@ R$ 130,00
             const methodRows = obj => PAYS.map(pay => row(esc(pay), money(obj.byPayment[pay] || 0))).join('');
             const category = (title, data, includeFee) => `<div class="space-y-1.5 border-t border-dark-border pt-3"><h4 class="text-[11px] font-bold uppercase tracking-wider text-gray-400">${title}</h4>${methodRows(data)}${row('Valor dos produtos', money(data.products))}${includeFee ? row('Taxa de entrega', money(data.deliveryFee)) : ''}${data.serviceFee ? row('Serviço', money(data.serviceFee)) : ''}${data.discount ? row('Descontos', '- ' + money(data.discount)) : ''}${row('Total', money(data.total), 'font-bold text-white')}</div>`;
             const attendants = Object.entries(summary.attendants).sort((a, b) => b[1] - a[1]).map(([name, value]) => row(esc(name), money(value))).join('') || '<p class="text-xs text-gray-500">Sem vendas por atendente.</p>';
+            const drivers = (summary.deliveryDrivers || []).map(driver => row(`${esc(driver.name)} (${driver.count} entrega(s))`, money(driver.fee))).join('') || '<p class="text-xs text-gray-500">Nenhuma entrega expedida nesta sessão.</p>';
             const withdrawal = Number(c.withdrawal || 0);
             const remaining = c.remainingCash === undefined ? summary.drawerCash : Number(c.remainingCash);
             return `<div class="space-y-4 text-xs">
@@ -3655,6 +3946,7 @@ R$ 130,00
                 ${category('Vendas mesas', summary.tables, false)}
                 ${category('Vendas balcão', summary.counter, false)}
                 <div class="space-y-1.5 border-t border-dark-border pt-3"><h4 class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Vendas por atendente</h4>${attendants}</div>
+                <div class="space-y-1.5 border-t border-dark-border pt-3"><h4 class="text-[11px] font-bold uppercase tracking-wider text-gray-400">Taxas por entregador • expedições da sessão</h4>${drivers}</div>
             </div>`;
         }
         function renderCaixaLedger() {
@@ -3672,15 +3964,17 @@ R$ 130,00
             $('caixa-main-action-label').textContent = isOpen ? 'FECHAR CAIXA' : 'ABRIR CAIXA';
             $('caixa-main-action-icon').setAttribute('data-lucide', isOpen ? 'lock' : 'unlock');
             $('caixa-count').textContent = isOpen ? `Total: ${m.length} lançamentos` : '0 lançamentos';
-            const badge = { Venda: 'emerald', Suprimento: 'sky', Sangria: 'red' };
-            $('caixa-ledger-body').innerHTML = m.slice().reverse().map(x => `<tr class="hover:bg-dark-hover"><td class="p-3 font-mono text-gray-400">${new Date(x.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td><td class="p-3 font-medium text-white">${esc(x.desc)}</td><td class="p-3 text-gray-400">${x.pay}</td><td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-${badge[x.type]}-500/10 text-${badge[x.type]}-400">${x.type}</span></td><td class="p-3 text-right font-bold ${x.type === 'Sangria' ? 'text-red-400' : 'text-emerald-400'}">${x.type === 'Sangria' ? '- ' : ''}${money(x.v)}</td></tr>`).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum lançamento</td></tr>';
+            const badge = { Venda: 'emerald', 'Venda cancelada': 'red', Suprimento: 'sky', Sangria: 'red' };
+            $('caixa-ledger-body').innerHTML = m.slice().reverse().map(x => `<tr class="hover:bg-dark-hover"><td class="p-3 font-mono text-gray-400">${new Date(x.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td><td class="p-3 font-medium text-white">${esc(x.desc)}${x.type === 'Venda cancelada' ? '<div class="text-[10px] text-red-400">Pagamento não recebido • fora dos totais</div>' : ''}</td><td class="p-3 text-gray-400">${x.pay}</td><td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-${badge[x.type]}-500/10 text-${badge[x.type]}-400">${x.type}</span></td><td class="p-3 text-right font-bold ${x.type === 'Sangria' || x.type === 'Venda cancelada' ? 'text-red-400' : 'text-emerald-400'}">${x.type === 'Sangria' ? '- ' : ''}${money(x.v)}</td></tr>`).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">Nenhum lançamento</td></tr>';
             if (!isOpen) {
                 $('caixa-side').innerHTML = '<div class="bg-dark-card rounded-xl border border-dark-border p-4 text-xs text-gray-400">Os dados da sessão encerrada estão disponíveis no histórico.</div>';
                 lucide.createIcons();
                 return;
             }
             const row = (a, b, cl = 'text-white') => `<div class="flex justify-between text-gray-400"><span>${a}</span><span class="font-medium ${cl}">${b}</span></div>`;
-            $('caixa-side').innerHTML = `<div class="bg-dark-card rounded-xl border border-dark-border p-4 space-y-4"><div class="flex justify-between items-center border-b border-dark-border pb-2"><h3 class="font-bold text-sm text-gold-500 tracking-wide">RESUMO DO CAIXA</h3><button onclick="printCaixa()" class="text-xs text-gray-400 hover:text-white">Imprimir</button></div><div class="space-y-1.5 text-xs">${row('Saldo Inicial:', money(c.initial))}${row('Suprimentos (+):', money(sup), 'text-emerald-400')}${row('Sangrias (-):', '- ' + money(sang), 'text-red-400')}${row('Vendas em Dinheiro:', money(din))}<div class="pt-2 border-t border-dark-border flex justify-between font-bold text-sm text-gold-400"><span>VALOR EM CAIXA:</span><span>${money(caixaResumo(c).drawerCash)}</span></div></div><div class="pt-3 border-t border-dark-border space-y-1 text-xs"><h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">RESUMO DAS VENDAS</h4>${PAYS.map(p => row(p + ':', money(by(p)), 'text-gray-300')).join('')}<div class="flex justify-between font-bold text-white pt-1 border-t border-dark-border"><span>TOTAL VENDAS:</span><span class="text-gold-500">${money(tot)}</span></div></div></div>`;
+            const summary = caixaResumo(c);
+            const drivers = summary.deliveryDrivers.map(driver => row(`${esc(driver.name)} (${driver.count} entrega(s))`, money(driver.fee))).join('') || '<p class="text-gray-500">Nenhuma entrega expedida nesta sessão.</p>';
+            $('caixa-side').innerHTML = `<div class="bg-dark-card rounded-xl border border-dark-border p-4 space-y-4"><div class="flex justify-between items-center border-b border-dark-border pb-2"><h3 class="font-bold text-sm text-gold-500 tracking-wide">RESUMO DO CAIXA</h3><button onclick="printCaixa()" class="text-xs text-gray-400 hover:text-white">Imprimir</button></div><div class="space-y-1.5 text-xs">${row('Saldo Inicial:', money(c.initial))}${row('Suprimentos (+):', money(sup), 'text-emerald-400')}${row('Sangrias (-):', '- ' + money(sang), 'text-red-400')}${row('Vendas em Dinheiro:', money(din))}<div class="pt-2 border-t border-dark-border flex justify-between font-bold text-sm text-gold-400"><span>VALOR EM CAIXA:</span><span>${money(summary.drawerCash)}</span></div></div><div class="pt-3 border-t border-dark-border space-y-1 text-xs"><h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">RESUMO DAS VENDAS</h4>${PAYS.map(p => row(p + ':', money(by(p)), 'text-gray-300')).join('')}<div class="flex justify-between font-bold text-white pt-1 border-t border-dark-border"><span>TOTAL VENDAS:</span><span class="text-gold-500">${money(tot)}</span></div></div><div class="pt-3 border-t border-dark-border space-y-1 text-xs"><h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">TAXAS POR ENTREGADOR • EXPEDIÇÕES DA SESSÃO</h4>${drivers}</div></div>`;
             lucide.createIcons();
         }
         function renderCaixaHistory() {
@@ -3773,7 +4067,8 @@ R$ 130,00
                 const r = (a, b, cls = '') => `<div class="tk-row ${cls}"><span>${a}</span><span>${b}</span></div>`;
                 const category = (title, data, includeFee) => `<div class="tk-hr"></div><div class="tk-b">${title}</div>${PAYS.map(pay => r(esc(pay), money(data.byPayment[pay] || 0))).join('')}${r('Valor dos produtos', money(data.products))}${includeFee ? r('Taxa de entrega', money(data.deliveryFee)) : ''}${data.serviceFee ? r('Serviço', money(data.serviceFee)) : ''}${r('Total', money(data.total), 'tk-b')}`;
                 const attendants = Object.entries(summary.attendants).sort((a, b) => b[1] - a[1]).map(([name, value]) => r(esc(name), money(value))).join('');
-                const markup = `${await thermalBrandMarkup()}<div class="tk-hr2"></div><div class="tk-c tk-b">RESUMO DO CAIXA</div><div class="tk-c tk-sm">Sessão #${esc(c.id)}</div><div class="tk-c tk-sm">Aberto em ${caixaDateTime(c.at)}</div>${c.closedAt ? `<div class="tk-c tk-sm">Fechado em ${caixaDateTime(c.closedAt)}</div>` : ''}<div class="tk-hr"></div>${r('Saldo inicial', money(c.initial))}${r('Suprimentos', money(summary.supplies))}${r('Sangrias', '- ' + money(summary.withdrawals))}${r('Vendas em dinheiro', money(summary.byPayment.Dinheiro || 0))}${r('Valor em caixa', money(summary.drawerCash), 'tk-b')}${r('Retirado no fechamento', money(c.withdrawal || 0))}${r('Ficou no caixa', money(c.remainingCash ?? summary.drawerCash), 'tk-b')}<div class="tk-hr"></div><div class="tk-b">RESUMO DAS VENDAS</div>${PAYS.map(pay => r(esc(pay), money(summary.byPayment[pay] || 0))).join('')}${r('TOTAL', money(summary.sales), 'tk-tot')}${category('VENDAS DELIVERY', summary.delivery, true)}${category('VENDAS MESAS', summary.tables, false)}${category('VENDAS BALCAO', summary.counter, false)}${attendants ? `<div class="tk-hr"></div><div class="tk-b">VENDAS POR ATENDENTE</div>${attendants}` : ''}${tkEnd}`;
+                const drivers = (summary.deliveryDrivers || []).map(driver => r(`${esc(driver.name)} (${driver.count})`, money(driver.fee))).join('');
+                const markup = `${await thermalBrandMarkup()}<div class="tk-hr2"></div><div class="tk-c tk-b">RESUMO DO CAIXA</div><div class="tk-c tk-sm">Sessão #${esc(c.id)}</div><div class="tk-c tk-sm">Aberto em ${caixaDateTime(c.at)}</div>${c.closedAt ? `<div class="tk-c tk-sm">Fechado em ${caixaDateTime(c.closedAt)}</div>` : ''}<div class="tk-hr"></div>${r('Saldo inicial', money(c.initial))}${r('Suprimentos', money(summary.supplies))}${r('Sangrias', '- ' + money(summary.withdrawals))}${r('Vendas em dinheiro', money(summary.byPayment.Dinheiro || 0))}${r('Valor em caixa', money(summary.drawerCash), 'tk-b')}${r('Retirado no fechamento', money(c.withdrawal || 0))}${r('Ficou no caixa', money(c.remainingCash ?? summary.drawerCash), 'tk-b')}<div class="tk-hr"></div><div class="tk-b">RESUMO DAS VENDAS</div>${PAYS.map(pay => r(esc(pay), money(summary.byPayment[pay] || 0))).join('')}${r('TOTAL', money(summary.sales), 'tk-tot')}${category('VENDAS DELIVERY', summary.delivery, true)}${category('VENDAS MESAS', summary.tables, false)}${category('VENDAS BALCAO', summary.counter, false)}${attendants ? `<div class="tk-hr"></div><div class="tk-b">VENDAS POR ATENDENTE</div>${attendants}` : ''}${drivers ? `<div class="tk-hr"></div><div class="tk-b">TAXAS POR ENTREGADOR - EXPEDICOES</div>${drivers}` : ''}${tkEnd}`;
                 const printer = qzSettings.sectors.find(sector => sector.id === 'general')?.printerId || qzSettings.cashierPrinter;
                 if (!printer) throw new Error('Configure a impressora do setor Geral nas configurações de impressão.');
                 await ensureQzConnected();
@@ -3793,6 +4088,7 @@ R$ 130,00
             if (c) printCaixa(c);
         }
         function fecharCaixa() {
+            if (deliveryDispatchPending || orderCancellationPending) return toast('Aguarde a conclusão da operação antes de fechar o caixa.');
             if (!caixaAberto()) return toast('Este caixa já está fechado.');
             const abertos = S.orders.filter(isOrderOpen).length;
             if (abertos && !confirm(`Atenção: ${abertos} pedido(s) ainda não recebido(s).\n\nDeseja continuar com o fechamento do caixa?`)) return;
@@ -3853,6 +4149,7 @@ R$ 130,00
             toast(`Caixa aberto com saldo inicial de ${money(S.caixa.initial)}.`);
         }
         async function confirmCloseCash() {
+            if (deliveryDispatchPending || orderCancellationPending) return toast('Aguarde a conclusão da operação antes de fechar o caixa.');
             if (cashStatusSyncPending) return toast('Aguarde a sincronização do status do caixa.');
             if (!caixaAberto()) return toast('Este caixa já está fechado.');
             const withdrawal = Number($('close-cash-withdrawal').value);
@@ -3873,7 +4170,7 @@ R$ 130,00
             closed.nextInitial = +nextInitial.toFixed(2);
             closed.summary = summary;
             S.caixaHistory.push(closed);
-            S.orders = S.orders.filter(isOrderOpen);
+            S.orders = S.orders.filter(order => isOrderOpen(order) || (order.type === 'DELIVERY' && order.paid && order.status === 'PENDENTE'));
             selectedCashHistoryId = String(closed.id);
             $('caixa-history-date').value = caixaDateKey(closedAt);
             S.caixa = {
@@ -3912,7 +4209,8 @@ R$ 130,00
             const brand = await thermalBrandMarkup();
             const location = o.type === 'MESA' ? `MESA: ${o.mesa}` : where(o).toUpperCase();
             const tableLocation = o.type === 'MESA' ? `<div class="tk-c tk-table-number">${esc(location)}</div>` : '';
-            const top = (t) => `${brand}<div class="tk-hr2"></div><div class="tk-c tk-b">${t}</div><div class="tk-hr"></div>${tableLocation}<div class="tk-row tk-meta"><span>PEDIDO: #${o.id}</span>${tableLocation ? '' : `<span>${esc(location)}</span>`}</div><div class="tk-meta">DATA: ${dt}</div><div class="tk-meta">ATENDENTE: ${esc(o.by || '')}</div><div class="tk-hr"></div>`;
+            const deliveryOrderNumber = o.type === 'DELIVERY' ? `<div class="tk-c tk-order-number">PEDIDO: #${esc(o.id)}</div>` : '';
+            const top = (t) => `${brand}<div class="tk-hr2"></div><div class="tk-c tk-b">${t}</div><div class="tk-hr"></div>${tableLocation}${deliveryOrderNumber}<div class="tk-row tk-meta">${deliveryOrderNumber ? '' : `<span>PEDIDO: #${o.id}</span>`}${tableLocation ? '' : `<span>${esc(location)}</span>`}</div><div class="tk-meta">DATA: ${dt}</div><div class="tk-meta">ATENDENTE: ${esc(o.by || '')}</div><div class="tk-hr"></div>`;
             const messageMarkup = message => String(message || '').split(/\r?\n/)
                 .map(line => line.trim()).filter(Boolean)
                 .map(line => `<div>${esc(line)}</div>`).join('');
@@ -3941,7 +4239,10 @@ R$ 130,00
                     ? `<div class="tk-b">CLIENTE</div><div>${esc(o.cli)}</div><div>${esc(o.tel)}</div><div>${esc(o.end)}</div><div class="tk-b">Bairro: ${esc(o.bairro)}</div><div class="tk-hr"></div>`
                     : o.cli ? `<div class="tk-b">CLIENTE</div><div>${esc(o.cli)}</div><div class="tk-hr"></div>` : '';
                 const pay = o.accountPreview ? 'PRÉ-CONTA • AGUARDE O PAGAMENTO' :
-                    o.paid ? `PAGO • ${esc(o.pay)}` : (o.payPref ? `Pagar na entrega • ${esc(o.payPref)}` : 'A RECEBER');
+                    o.paid ? `PAGO • ${esc(o.pay)}` : (o.payPref ? `Pagamento previsto • ${esc(o.payPref)}` : 'A RECEBER');
+                const changeInfo = !o.paid && o.needsChange === true && Number.isFinite(Number(o.cashChangeFor))
+                    ? `<div class="tk-row tk-b"><span>Troco para ${money(o.cashChangeFor)}</span><span>${money(o.cashChangeFor - o.total)}</span></div>`
+                    : !o.paid && o.needsChange === false ? '<div class="tk-c tk-b">DINHEIRO • SEM TROCO</div>' : '';
                 const orderRefs = o.accountPreview && o.orderRefs
                     ? `<div class="tk-b">PEDIDOS: ${esc(o.orderRefs)}</div><div class="tk-hr"></div>` : '';
                 const subtotal = Number(o.sub ?? items.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.price) || 0), 0));
@@ -3969,7 +4270,7 @@ R$ 130,00
                   + itemMarkup
                   + '<div class="tk-hr2"></div><div class="tk-b">RESUMO DA CONTA</div>'
                   + subtotalMarkup + feesMarkup + adjustmentMarkup
-                  + `<div class="tk-hr2"></div><div class="tk-row tk-tot"><span>${type === 'cancel' ? 'VALOR CANCELADO' : o.accountPreview ? 'TOTAL DA CONTA' : 'TOTAL'}</span><span>${money(o.total)}</span></div><div class="tk-hr2"></div><div class="tk-c tk-b">${type === 'cancel' ? 'PEDIDO CANCELADO' : pay}</div>${tableMessage ? `<div class="tk-hr"></div><div class="tk-c tk-sm">${messageMarkup(tableMessage)}</div>` : '<div class="tk-hr"></div><div class="tk-c tk-sm">Obrigado pela preferência!</div>'}`;
+                  + `<div class="tk-hr2"></div><div class="tk-row tk-tot"><span>${type === 'cancel' ? 'VALOR CANCELADO' : o.accountPreview ? 'TOTAL DA CONTA' : 'TOTAL'}</span><span>${money(o.total)}</span></div><div class="tk-hr2"></div><div class="tk-c tk-b">${type === 'cancel' ? 'PEDIDO CANCELADO' : pay}</div>${type === 'cancel' ? '' : changeInfo}${tableMessage ? `<div class="tk-hr"></div><div class="tk-c tk-sm">${messageMarkup(tableMessage)}</div>` : '<div class="tk-hr"></div><div class="tk-c tk-sm">Obrigado pela preferência!</div>'}`;
             }
             const qrValue = type !== 'kitchen' && qzSettings.options.printQrCode
                 ? (o.type === 'MESA' ? qzSettings.tableQr || qzSettings.standardQr : qzSettings.standardQr)
@@ -4081,7 +4382,7 @@ R$ 130,00
         }
         function selCli(id) {
             const c = S.clientes.find(x => x.id === id); if (!c) return;
-            $('o-cli').value = c.cli; $('o-tel').value = formatBrazilPhone(c.tel); $('o-end').value = c.end; $('o-bairro').value = c.bairro; $('o-taxa').value = ['7', '8', '9', '10'].includes(String(c.taxa)) ? String(c.taxa) : '7';
+            $('o-cli').value = c.cli; $('o-tel').value = formatBrazilPhone(c.tel); $('o-end').value = c.end; $('o-bairro').value = c.bairro; $('o-taxa').value = ['6', '7', '8', '9', '10'].includes(String(c.taxa)) ? String(c.taxa) : '7';
             $('o-conf-txt').innerHTML = `${esc(c.cli)} • ${esc(formatBrazilPhone(c.tel))}<br>${esc(c.end)}<br>Bairro: ${esc(c.bairro)}`;
             $('o-conf').checked = false; $('o-conf-box').classList.remove('hidden'); cliLoaded = true;
             $('o-busca').value = ''; $('o-busca-res').classList.add('hidden'); renderCart();

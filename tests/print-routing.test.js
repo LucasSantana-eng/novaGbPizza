@@ -349,7 +349,7 @@ test('table preview without a connected printer is reported instead of pretendin
     assert.match(messages[0], /não impressa/);
 });
 
-test('table number is prominent on production and preview receipts without changing delivery headers', async () => {
+test('table and delivery order numbers are prominent on their receipts', async () => {
     const context = {
         thermalBrandMarkup: async () => '',
         where: order => order.type === 'DELIVERY' ? 'Delivery' : `Mesa ${order.mesa}`,
@@ -385,9 +385,12 @@ test('table number is prominent on production and preview receipts without chang
         assert.match(markup, /<div class="tk-c tk-table-number">MESA: 12<\/div>/);
         assert.match(markup, /PEDIDO: #8/);
     }
-    const delivery = await thermalMarkup('caixa', { ...tableOrder, type: 'DELIVERY' });
-    assert.doesNotMatch(delivery, /tk-table-number/);
-    assert.match(delivery, /<span>DELIVERY<\/span>/);
+    for (const type of ['kitchen', 'caixa']) {
+        const delivery = await thermalMarkup(type, { ...tableOrder, type: 'DELIVERY' });
+        assert.doesNotMatch(delivery, /tk-table-number/);
+        assert.match(delivery, /<div class="tk-c tk-order-number">PEDIDO: #8<\/div>/);
+        assert.match(delivery, /<span>DELIVERY<\/span>/);
+    }
     const adjusted = await thermalMarkup('caixa', {
         ...tableOrder, accountPreview: true, removedService: 3, discount: 5, total: 25
     });
@@ -421,6 +424,7 @@ test('closing a table persists adjustments and payment allocations including a f
     const context = {
         S: { orders, caixa: { movs: [] } },
         PAYS: ['Dinheiro', 'PIX'],
+        orderCancellationPending: false,
         pendingPaymentTarget: { mesaNumber: 2, orderIds: ['1', '2'] },
         caixaAberto: () => true,
         mesaOrders: () => orders,
@@ -460,6 +464,7 @@ test('a table can be fully discounted and closed without a payment', () => {
     const context = {
         S: { orders, caixa: { movs: [] } },
         PAYS: ['Dinheiro'],
+        orderCancellationPending: false,
         pendingPaymentTarget: { mesaNumber: 2, orderIds: ['1'] },
         caixaAberto: () => true,
         mesaOrders: () => orders,

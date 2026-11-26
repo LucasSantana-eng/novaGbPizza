@@ -105,6 +105,14 @@ function isValidOrder(payload: unknown) {
     ? items.reduce((sum, item) => sum + item.qty * item.price, 0)
     : Number.NaN;
   const deliveryFee = Number(order.deliveryFee);
+  const changeFieldsAreValid = order.needsChange === undefined
+    ? order.cashChangeFor === undefined
+    : order.payment === "Dinheiro" && typeof order.needsChange === "boolean" &&
+      (order.needsChange
+        ? typeof order.cashChangeFor === "number" && Number.isFinite(order.cashChangeFor) &&
+          order.cashChangeFor <= 1000000 && order.cashChangeFor > Number(order.total) &&
+          Math.abs(order.cashChangeFor * 100 - Math.round(order.cashChangeFor * 100)) < 0.000001
+        : order.cashChangeFor === undefined);
 
   return typeof customer?.name === "string" && customer.name.trim().length > 0 &&
     customer.name.length <= 120 &&
@@ -120,7 +128,7 @@ function isValidOrder(payload: unknown) {
     order.total >= 0 && order.total <= 1000000 &&
     Math.abs(Number(order.total) - subtotal - deliveryFee) < 0.01 &&
     (order.deliveryType === "delivery" || deliveryFee === 0) &&
-    typeof order.payment === "string" && order.payment.length <= 60;
+    typeof order.payment === "string" && order.payment.length <= 60 && changeFieldsAreValid;
 }
 
 Deno.serve(async request => {

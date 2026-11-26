@@ -609,11 +609,19 @@
 
                 <div class="space-y-2 text-xs">
                     <label class="block text-gray-400 font-medium">Forma de Pagamento:</label>
-                    <select id="cartPayment" class="w-full bg-brand-card border border-brand-border rounded-lg p-2.5 text-white text-xs focus:outline-none focus:border-brand-gold">
+                    <select id="cartPayment" onchange="updateOnlineChangePreview()" class="w-full bg-brand-card border border-brand-border rounded-lg p-2.5 text-white text-xs focus:outline-none focus:border-brand-gold">
                         <option value="Pix">Pix (Chave informada no Atendimento)</option>
                         <option value="Cartão de Crédito/Débito">Cartão de Crédito / Débito (Levar Maquininha)</option>
                         <option value="Dinheiro">Dinheiro (Informar se precisa de troco)</option>
                     </select>
+                    <div id="cartChangeOptions" class="hidden space-y-2 text-gray-300">
+                        <label class="flex items-center gap-2"><input id="cartNeedsChange" type="checkbox" onchange="updateOnlineChangePreview()"> Precisa de troco?</label>
+                        <div id="cartChangeFields" class="hidden space-y-1">
+                            <label for="cartChangeFor">Você vai pagar com (R$)</label>
+                            <input id="cartChangeFor" type="number" min="0" step="0.01" inputmode="decimal" oninput="updateOnlineChangePreview()" class="w-full bg-brand-card border border-brand-border rounded-lg p-2.5 text-white">
+                            <p id="cartChangePreview" class="text-brand-gold" role="status"></p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- TOTAL CALCULATION -->
@@ -765,7 +773,10 @@
                 subtotal,
                 deliveryFee,
                 total: roundOnlineMoney(subtotal + deliveryFee),
-                payment: form.payment
+                payment: form.payment,
+                ...(form.payment === 'Dinheiro' && typeof form.needsChange === 'boolean'
+                    ? { needsChange: form.needsChange, ...(form.needsChange ? { cashChangeFor: form.cashChangeFor } : {}) }
+                    : {})
             };
         }
 
@@ -914,6 +925,8 @@
                 const address = document.getElementById('cartAddress').value;
                 const complement = document.getElementById('cartComplement').value;
                 const payment = document.getElementById('cartPayment').value;
+                const needsChange = payment === 'Dinheiro' && document.getElementById('cartNeedsChange').checked;
+                const cashChangeRaw = document.getElementById('cartChangeFor').value;
 
                 if (!customerName || !customerPhone) {
                     alert("Por favor, informe seu nome e telefone para enviar o pedido.");
@@ -931,6 +944,13 @@
                     alert("O pedido pode ter até 30 itens diferentes e no máximo 50 unidades de cada item.");
                     return;
                 }
+                const totalCents = Math.round((cart.reduce((sum, item) => sum + item.price * item.qty, 0) + (deliveryType === 'delivery' ? 5 : 0)) * 100);
+                const cashChangeFor = Number(cashChangeRaw);
+                if (needsChange && (!/^\d+(?:\.\d{1,2})?$/.test(cashChangeRaw) || !Number.isFinite(cashChangeFor)
+                    || cashChangeFor > 1000000 || Math.round(cashChangeFor * 100) <= totalCents)) {
+                    alert('Informe um valor para troco maior que o total, com até duas casas decimais.');
+                    return;
+                }
 
                 const form = {
                     customerName,
@@ -939,7 +959,9 @@
                     address,
                     complement,
                     deliveryFee: 5,
-                    payment
+                    payment,
+                    needsChange: payment === 'Dinheiro' ? needsChange : undefined,
+                    cashChangeFor: needsChange ? Math.round(cashChangeFor * 100) / 100 : undefined
                 };
                 pendingOnlineSubmission = {
                     ...createOnlineOrderIdentity(),
@@ -1298,6 +1320,20 @@
             updateCartUI();
         }
 
+        function updateOnlineChangePreview() {
+            const cash = document.getElementById('cartPayment').value === 'Dinheiro';
+            const needsChange = cash && document.getElementById('cartNeedsChange').checked;
+            document.getElementById('cartChangeOptions').classList.toggle('hidden', !cash);
+            document.getElementById('cartChangeFields').classList.toggle('hidden', !needsChange);
+            const raw = document.getElementById('cartChangeFor').value;
+            const amount = Number(raw);
+            const totalCents = Math.round((cart.reduce((sum, item) => sum + item.price * item.qty, 0) + (deliveryType === 'delivery' ? 5 : 0)) * 100);
+            const valid = /^\d+(?:\.\d{1,2})?$/.test(raw) && Number.isFinite(amount) && Math.round(amount * 100) > totalCents;
+            document.getElementById('cartChangePreview').textContent = valid
+                ? `Troco previsto: R$ ${((Math.round(amount * 100) - totalCents) / 100).toFixed(2).replace('.', ',')}`
+                : 'Informe um valor maior que o total, com até duas casas decimais.';
+        }
+
         function updateCartUI() {
             const cartBadge = document.getElementById('cartBadge');
             const cartItemsList = document.getElementById('cartItemsList');
@@ -1353,6 +1389,7 @@
             cartSubtotal.innerText = `R$ ${subtotal.toFixed(2)}`;
             cartDeliveryFee.innerText = deliveryType === 'delivery' ? `R$ ${fee.toFixed(2)}` : 'Grátis';
             cartTotal.innerText = `R$ ${total.toFixed(2)}`;
+            updateOnlineChangePreview();
         }
 
         function setDeliveryType(type) {
