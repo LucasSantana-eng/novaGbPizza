@@ -15,6 +15,7 @@ function setup(orders, options = {}) {
     let renders = 0;
     const context = {
         S: { orders },
+        window: { GabryelleMesa: require('../mesa-conta-compartilhada.js') },
         selectedMesa: 2,
         mesaItemUpdatePending: false,
         currentUser: { name: 'Garçom' },
@@ -112,4 +113,120 @@ test('reports persistence failure rather than a successful update', async () => 
     const env = setup([order()], { saved: false });
     await env.context.remove(1, 0, true);
     assert.match(env.messages[0], /Não foi possível salvar/);
+});
+
+test('cashier additions consolidate open orders while preserving kitchen batches and 10% of the whole table', () => {
+    const shared = require('../mesa-conta-compartilhada.js');
+    let counter = 0;
+    const context = {
+        S: { seq: 10, orders: [], menu: { svc: 10 } },
+        window: { GabryelleMesa: shared, crypto: { randomUUID: () => `batch-${++counter}` } },
+        $: () => ({ checked: true }), caixaAberto: () => true,
+        isOrderOpen: entry => !entry.paid && entry.status !== 'CANCELADO',
+        renderAll() {}, toast(message) { throw new Error(message); }
+    };
+    const start = html.indexOf('        function finalize(');
+    const end = html.indexOf('        function payOrder(', start);
+    vm.runInNewContext(`${html.slice(start, end)}\nthis.finalize = finalize;`, context);
+    const make = price => ({ type: 'MESA', mesa: 2, items: [{ name: 'Produto', qty: 1, price, det: [], obs: '' }], taxa: 0, by: 'Caixa', printRequested: true });
+    const first = make(43);
+    context.finalize(first, 'Pagar depois');
+    context.S.orders[0].tableBatches[0].status = 'PRONTO';
+    context.S.orders[0].status = 'PRONTO';
+    const second = make(6);
+    context.finalize(second, 'Pagar depois');
+    const third = make(6);
+    context.finalize(third, 'Pagar depois');
+    assert.equal(context.S.orders.length, 1);
+    const result = context.S.orders[0];
+    assert.equal(result.id, first.id);
+    assert.equal(second.id, first.id);
+    assert.equal(third.id, first.id);
+    assert.equal(result.sub, 55);
+    assert.equal(result.svc, 5.5);
+    assert.equal(result.total, 60.5);
+    assert.deepEqual(Array.from(result.tableBatches, batch => batch.status), ['PRONTO', 'PENDENTE', 'PENDENTE']);
+    assert.equal(second.items.length, 1);
+    assert.equal(second.tableBatchPrintId, 'batch-2');
+});
+
+test('legacy orders consolidate with historical snapshots and service rounded over the combined subtotal', () => {
+    const shared = require('../mesa-conta-compartilhada.js');
+    const entries = [
+        order({ items: [{ name: 'A', qty: 1, price: 0.05 }], sub: 0.05, svc: 0.01, total: 0.06, status: 'PRONTO' }),
+        order({ id: 2, items: [{ name: 'B', qty: 2, price: 0.05 }], sub: 0.1, svc: 0.01, total: 0.11 })
+    ];
+    const merged = shared.consolidateTableOrders(entries, 2, 10);
+    assert.equal(merged.id, 1);
+    assert.equal(merged.sub, 0.15);
+    assert.equal(merged.svc, 0.02);
+    assert.equal(merged.total, 0.17);
+    assert.deepEqual(merged.tableOriginalOrders.map(entry => entry.id), [1, 2]);
+    assert.deepEqual(merged.tableBatches.map(entry => entry.status), ['PRONTO', 'PENDENTE']);
+    assert.equal(merged.tableBatches[0].printRequested, false);
+    assert.equal(entries[0].items[0].tableBatchId, undefined);
+});
+
+test('removing an item recalculates service and removes its empty kitchen batch from pending', async () => {
+    const combined = order({
+        items: [
+            { name: 'A', qty: 1, price: 0.05, tableBatchId: 'a' },
+            { name: 'B', qty: 3, price: 0.05, tableBatchId: 'b' }
+        ],
+        tableBatches: [{ id: 'a', status: 'PENDENTE' }, { id: 'b', status: 'PRONTO' }],
+        sub: 0.2, svc: 0.02, svcPct: 10, serviceEnabled: true, total: 0.22
+    });
+    const env = setup([combined]);
+    await env.context.remove(1, 0, true);
+    assert.equal(combined.sub, 0.15);
+    assert.equal(combined.svc, 0.02);
+    assert.equal(combined.total, 0.17);
+    assert.equal(combined.status, 'PRONTO');
+});
+
+test('marking one kitchen batch ready leaves newer additions pending', async () => {
+    const table = order({
+        items: [
+            { name: 'Pizza', qty: 1, price: 20, det: [], tableBatchId: 'a' },
+            { name: 'Suco', qty: 1, price: 10, det: [], tableBatchId: 'b' }
+        ],
+        tableBatches: [{ id: 'a', status: 'PENDENTE' }, { id: 'b', status: 'PENDENTE' }]
+    });
+    const context = {
+        S: { orders: [table] }, kdsTableUpdatePending: false,
+        deliveryEditPending: false, deliveryDispatchPending: false,
+        deliveryDriverUpdatePending: false, orderCancellationPending: false,
+        supabaseClient: null, renderAll() {}, save: async () => true,
+        toast(message) { throw new Error(message); }
+    };
+    const start = html.indexOf('        async function kdsDone(');
+    const end = html.indexOf('        function stLabel(', start);
+    vm.runInNewContext(`${html.slice(start, end)}\nthis.done = kdsDone;`, context);
+    await context.done(1, 0);
+    assert.equal(table.tableBatches[0].status, 'PRONTO');
+    assert.equal(table.tableBatches[1].status, 'PENDENTE');
+    assert.equal(table.status, 'PENDENTE');
+    await context.done(1, 1);
+    assert.equal(table.status, 'PRONTO');
+});
+
+test('removing grouped items targets the latest unit and keeps different observations separate', async () => {
+    const table = order({
+        items: [
+            { name: 'Suco', qty: 1, price: 10, det: [], obs: '', tableBatchId: 'old' },
+            { name: 'Suco', qty: 2, price: 10, det: [], obs: '', tableBatchId: 'new' },
+            { name: 'Suco', qty: 1, price: 10, det: [], obs: 'Sem gelo', tableBatchId: 'new' }
+        ],
+        tableBatches: [{ id: 'old', status: 'PRONTO' }, { id: 'new', status: 'PENDENTE' }],
+        sub: 40, svc: 4, svcPct: 10, serviceEnabled: true, total: 44
+    });
+    const env = setup([table]);
+    await env.context.remove(1, 0, false);
+    assert.equal(table.items[0].qty, 1);
+    assert.equal(table.items[1].qty, 1);
+    assert.equal(table.total, 33);
+    await env.context.remove(1, 0, true);
+    assert.equal(table.items.length, 1);
+    assert.equal(table.items[0].obs, 'Sem gelo');
+    assert.equal(table.total, 11);
 });

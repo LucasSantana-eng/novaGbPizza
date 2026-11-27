@@ -1,8 +1,13 @@
 -- 1. Faça backup do banco e pause todos os caixas, garçons e serviços de impressão.
--- 2. Execute este arquivo inteiro no SQL Editor do Supabase.
--- 3. Publique index.html, garçon.html e menu-compartilhado.js juntos.
--- 4. Atualize index.js se o serviço de impressão legado estiver habilitado.
--- 5. Recarregue todos os dispositivos antes de retomar. Clientes antigos podem falhar ao salvar.
+-- 2. Confira as mesas abertas: o script unifica seus pedidos e recalcula a taxa
+--    configurada no cardápio sobre o subtotal da comanda. Pedidos originais são
+--    preservados em tableOriginalOrders; contas pagas e canceladas não são alteradas.
+--    Se uma mesa possuir serviço em algum pedido, a taxa incidirá sobre toda a mesa.
+-- 3. Execute este arquivo inteiro no SQL Editor do Supabase.
+-- 4. Publique index.html, garçon.html, menu-compartilhado.js e
+--    mesa-conta-compartilhada.js juntos. Atualize index.js se o serviço legado estiver habilitado.
+-- 5. Recarregue todos os dispositivos, confira as comandas abertas e retome.
+--    Clientes antigos não são compatíveis com o novo formato de lançamentos.
 begin;
 
 lock table public.app_state in access exclusive mode;
@@ -57,6 +62,118 @@ create trigger gp_state_revision_guard
 before update on public.app_state
 for each row execute function public.guard_pos_state_revision();
 
+create or replace function public.consolidate_open_table_orders(p_state jsonb, p_table integer, p_rate numeric)
+returns jsonb
+language plpgsql
+set search_path = pg_catalog, public
+as $$
+declare
+    entry jsonb;
+    item jsonb;
+    primary_order jsonb;
+    batches jsonb := '[]'::jsonb;
+    items jsonb := '[]'::jsonb;
+    originals jsonb := '[]'::jsonb;
+    result_orders jsonb := '[]'::jsonb;
+    batch_id text;
+    enabled boolean := false;
+    subtotal numeric := 0;
+    fees numeric := 0;
+    service numeric;
+    pending boolean := false;
+begin
+    if p_rate < 0 or p_rate > 100 then
+        raise exception 'Taxa de serviço inválida no caixa.' using errcode = '22023';
+    end if;
+    for entry in select value from jsonb_array_elements(p_state -> 'orders') loop
+        if entry ->> 'type' = 'MESA' and entry ->> 'mesa' = p_table::text
+            and coalesce((entry ->> 'paid')::boolean, false) = false
+            and entry ->> 'status' <> 'CANCELADO' then
+            if coalesce((entry ->> 'discount')::numeric, 0) <> 0 or coalesce((entry ->> 'removedService')::numeric, 0) <> 0 then
+                raise exception 'Mesa % possui ajustes anteriores; confira antes de unificar.', p_table using errcode = '22023';
+            end if;
+            if jsonb_typeof(entry -> 'items') is distinct from 'array' then
+                raise exception 'Itens inválidos na mesa %.', p_table using errcode = '22023';
+            end if;
+            if primary_order is null then primary_order := entry; end if;
+            enabled := enabled or coalesce((entry ->> 'serviceEnabled')::boolean, coalesce((entry ->> 'svc')::numeric, 0) > 0);
+            fees := fees + coalesce((entry ->> 'taxa')::numeric, 0);
+            if jsonb_typeof(entry -> 'tableBatches') = 'array' then
+                batches := batches || (entry -> 'tableBatches');
+                items := items || (entry -> 'items');
+                originals := originals || coalesce(entry -> 'tableOriginalOrders', '[]'::jsonb);
+            else
+                batch_id := 'legacy-' || (entry ->> 'id');
+                originals := originals || jsonb_build_array(entry);
+                batches := batches || jsonb_build_array(jsonb_build_object(
+                    'id', batch_id, 'at', entry -> 'at', 'by', entry -> 'by',
+                    'status', entry -> 'status', 'items', entry -> 'items', 'printRequested', false));
+                for item in select value from jsonb_array_elements(entry -> 'items') loop
+                    items := items || jsonb_build_array(item || jsonb_build_object('tableBatchId', batch_id));
+                end loop;
+            end if;
+        end if;
+    end loop;
+    if primary_order is null then return p_state; end if;
+    for item in select value from jsonb_array_elements(items) loop
+        if jsonb_typeof(item -> 'qty') is distinct from 'number' or jsonb_typeof(item -> 'price') is distinct from 'number' then
+            raise exception 'Quantidade ou preço inválido na mesa %.', p_table using errcode = '22023';
+        end if;
+        subtotal := subtotal + (item ->> 'qty')::numeric * (item ->> 'price')::numeric;
+    end loop;
+    select exists (
+        select 1 from jsonb_array_elements(batches) b
+        where b ->> 'status' = 'PENDENTE' and exists (
+            select 1 from jsonb_array_elements(items) i where i ->> 'tableBatchId' = b ->> 'id'
+        )
+    ) into pending;
+    service := case when enabled then round(subtotal * p_rate / 100, 2) else 0 end;
+    primary_order := primary_order || jsonb_build_object(
+        'items', items, 'tableBatches', batches, 'tableOriginalOrders', originals,
+        'serviceEnabled', enabled, 'svcPct', p_rate, 'sub', subtotal,
+        'taxa', fees, 'svc', service, 'total', subtotal + fees + service,
+        'status', case when pending then 'PENDENTE' else 'PRONTO' end);
+    for entry in select value from jsonb_array_elements(p_state -> 'orders') loop
+        if entry ->> 'type' = 'MESA' and entry ->> 'mesa' = p_table::text
+            and coalesce((entry ->> 'paid')::boolean, false) = false
+            and entry ->> 'status' <> 'CANCELADO' then
+            if entry ->> 'id' = primary_order ->> 'id' then
+                result_orders := result_orders || jsonb_build_array(primary_order);
+            end if;
+        else
+            result_orders := result_orders || jsonb_build_array(entry);
+        end if;
+    end loop;
+    return jsonb_set(p_state, '{orders}', result_orders);
+end;
+$$;
+
+revoke all on function public.consolidate_open_table_orders(jsonb, integer, numeric) from public, anon, authenticated;
+
+do $$
+declare
+    state jsonb;
+    original_state jsonb;
+    table_number integer;
+    service_rate numeric;
+begin
+    select data into state from public.app_state where id = 'gp_state' for update;
+    if state is null then raise exception 'Estado do caixa não encontrado.'; end if;
+    original_state := state;
+    if state ? '_tableOrderVersion' and state -> '_tableOrderVersion' <> '1'::jsonb then
+        raise exception 'Versão de comanda incompatível. Confira a migração antes de continuar.';
+    end if;
+    state := jsonb_set(state, '{_tableOrderVersion}', '1'::jsonb, true);
+    service_rate := coalesce((state -> 'menu' ->> 'svc')::numeric, 10);
+    for table_number in 1..50 loop
+        state := public.consolidate_open_table_orders(state, table_number, service_rate);
+    end loop;
+    if state is distinct from original_state then
+        update public.app_state set data = state where id = 'gp_state';
+    end if;
+end;
+$$;
+
 create or replace function public.submit_table_order(
     p_request_id uuid,
     p_revision bigint,
@@ -86,6 +203,11 @@ declare
     subtotal numeric := 0;
     service_rate numeric;
     service_amount numeric;
+    table_order jsonb;
+    batch_data jsonb;
+    tagged_items jsonb := '[]'::jsonb;
+    orders_data jsonb := '[]'::jsonb;
+    batch_at bigint;
 begin
     select id, name into employee from public.usuarios
     where id::text = p_employee_id and active = true and pin::text = p_pin;
@@ -151,6 +273,33 @@ begin
     if service_rate < 0 or service_rate > 100 then
         raise exception 'Taxa de serviço inválida no caixa.' using errcode = '22023';
     end if;
+    state := public.consolidate_open_table_orders(state, p_table, service_rate);
+    select value into table_order from jsonb_array_elements(state -> 'orders')
+    where value ->> 'type' = 'MESA' and value ->> 'mesa' = p_table::text
+        and coalesce((value ->> 'paid')::boolean, false) = false and value ->> 'status' <> 'CANCELADO'
+    limit 1;
+    batch_at := floor(extract(epoch from clock_timestamp()) * 1000)::bigint;
+    batch_data := jsonb_build_object(
+        'id', p_request_id, 'at', batch_at, 'by', employee.name, 'status', 'PENDENTE',
+        'items', p_items, 'printRequested', true, 'onlineOrderPrint', true);
+    for item in select value from jsonb_array_elements(p_items) loop
+        tagged_items := tagged_items || jsonb_build_array(item || jsonb_build_object('tableBatchId', p_request_id));
+    end loop;
+    if table_order is not null then
+        subtotal := subtotal + (table_order ->> 'sub')::numeric;
+        service_amount := case when (table_order ->> 'serviceEnabled')::boolean then round(subtotal * service_rate / 100, 2) else 0 end;
+        order_data := table_order || jsonb_build_object(
+            'items', (table_order -> 'items') || tagged_items,
+            'tableBatches', (table_order -> 'tableBatches') || jsonb_build_array(batch_data),
+            'sub', subtotal, 'svc', service_amount, 'svcPct', service_rate,
+            'total', subtotal + coalesce((table_order ->> 'taxa')::numeric, 0) + service_amount,
+            'status', 'PENDENTE');
+        for item in select value from jsonb_array_elements(state -> 'orders') loop
+            orders_data := orders_data || jsonb_build_array(
+                case when item ->> 'id' = table_order ->> 'id' then order_data else item end);
+        end loop;
+        state := jsonb_set(state, '{orders}', orders_data);
+    else
     service_amount := case when p_service then round(subtotal * service_rate / 100, 2) else 0 end;
     select greatest(
         coalesce((state ->> 'seq')::bigint, 1),
@@ -164,11 +313,13 @@ begin
         'taxa', 0, 'svc', service_amount, 'svcPct', service_rate,
         'sub', subtotal, 'total', subtotal + service_amount,
         'by', employee.name, 'byId', employee.id, 'status', 'PENDENTE', 'paid', false,
-        'at', floor(extract(epoch from clock_timestamp()) * 1000)::bigint,
+        'at', batch_at, 'items', tagged_items, 'serviceEnabled', p_service,
+        'tableBatches', jsonb_build_array(batch_data), 'tableOriginalOrders', '[]'::jsonb,
         'printRequested', true, 'onlineOrderPrint', true, 'tableRequestId', p_request_id
     );
     state := jsonb_set(state, '{orders}', (state -> 'orders') || jsonb_build_array(order_data));
     state := jsonb_set(state, '{seq}', to_jsonb(order_id + 1), true);
+    end if;
     update public.app_state set data = state where id = 'gp_state';
     insert into public.table_order_requests (request_id, employee_id, request, order_data)
     values (p_request_id, p_employee_id, request_data, order_data);

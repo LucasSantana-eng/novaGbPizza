@@ -315,10 +315,13 @@ test('envio incerto é repetido com o mesmo identificador sem armazenar o PIN', 
     const calls = [];
     const closed = [];
     const messages = [];
+    const broadcasts = [];
     const menu = { cats: { Bebidas: [['Água', 5, '']] }, customItems: [], pt: [], pd: [], ac: [], promotionDays: [], promoPrices: {}, svc: 10 };
     const context = {
         window: { GabryelleMenu: shared, crypto: { randomUUID: () => 'fixed-uuid' } },
         garcomAtual: 'Teste', garcomId: '1', garcomPin: '1234',
+        canalImpressaoAtivo: true,
+        canalImpressao: { send: message => { broadcasts.push(message); return new Promise(() => {}); } },
         pedidoPendente: null, erroPedidoPendente: '', envioEmAndamento: false, previaEmAndamento: false,
         mesaSelecionadaNumero: 3, cardapio: menu,
         itensRascunho: [{ kind: 'produto', key: 'item:0:0', name: 'Água', category: 'Bebidas', qty: 1, price: 5, obs: '' }],
@@ -327,7 +330,7 @@ test('envio incerto é repetido com o mesmo identificador sem armazenar o PIN', 
         document: { getElementById: () => ({ checked: true }) },
         normalizarCardapio: value => value,
         supabase: {
-            from: () => ({ select() { return this; }, eq() { return this; }, single: async () => ({ data: { data: { _revision: 4, menu } } }) }),
+            from: () => ({ select() { return this; }, eq() { return this; }, single: async () => ({ data: { data: { _revision: 4, _tableOrderVersion: 1, menu } } }) }),
             rpc: async (_name, params) => {
                 calls.push(params);
                 if (calls.length === 1) throw new Error('Rede interrompida');
@@ -339,6 +342,7 @@ test('envio incerto é repetido com o mesmo identificador sem armazenar o PIN', 
     };
     vm.runInNewContext(`${html.slice(itemStart, itemEnd)}\n${html.slice(sendStart, sendEnd)}`, context);
     await context.window.enviarPedidoMesa();
+    assert.equal(broadcasts.length, 0);
     assert.equal(context.pedidoPendente.params.p_request_id, 'fixed-uuid');
     assert.equal(storage.get('pending').includes('1234'), false);
     assert.deepEqual(closed, []);
@@ -347,6 +351,9 @@ test('envio incerto é repetido com o mesmo identificador sem armazenar o PIN', 
     await context.window.enviarPedidoMesa();
     assert.equal(calls.length, 2);
     assert.equal(calls[0].p_request_id, calls[1].p_request_id);
+    assert.deepEqual(JSON.parse(JSON.stringify(broadcasts)), [
+        { type: 'broadcast', event: 'table-order-committed', payload: {} }
+    ]);
     assert.equal(calls[0].p_service, true);
     assert.equal(context.pedidoPendente, null);
     assert.equal(storage.has('pending'), false);
@@ -361,17 +368,81 @@ test('confirmação de envio anterior preserva a escolha de serviço do pedido p
     const calls = [];
     const context = {
         window: {}, garcomAtual: 'Teste', garcomId: '1', garcomPin: '1234',
+        canalImpressaoAtivo: false,
         pedidoPendente: { params: { p_request_id: 'antigo', p_employee_id: '1', p_table: 3, p_service: false } },
         erroPedidoPendente: '', envioEmAndamento: false, previaEmAndamento: false, mesaSelecionadaNumero: 3,
-        itensRascunho: [{}], PENDING_REQUEST_KEY: 'pending',
+        itensRascunho: [{}], PENDING_REQUEST_KEY: 'pending', TABELA_STATE: 'app_state',
         sessionStorage: { removeItem() {} },
-        supabase: { rpc: async (_name, params) => { calls.push(params); return { data: { id: 8, mesa: 3 } }; } },
-        fecharModal() {}, renderModalMesa() {}, carregarAppState: async () => {}, showToast() {}, console: { error() {} }
+        supabase: {
+            from: () => ({ select() { return this; }, eq() { return this; }, single: async () => ({ data: { data: { _tableOrderVersion: 1 } } }) }),
+            rpc: async (_name, params) => { calls.push(params); return { data: { id: 8, mesa: 3 } }; }
+        },
+        fecharModal() {}, renderModalMesa() {}, carregarAppState: async () => {}, showToast() {}, console: { error() {}, warn() {} }
     };
     vm.runInNewContext(html.slice(sendStart, sendEnd), context);
     await context.window.enviarPedidoMesa();
     assert.equal(calls[0].p_service, false);
     assert.equal(calls[0].p_request_id, 'antigo');
+});
+
+test('falha ou indisponibilidade do aviso imediato não invalida o pedido confirmado', async () => {
+    const start = html.indexOf('    function novoIdentificadorPedido(');
+    const end = html.indexOf('    window.sincronizarTudo', start);
+    for (const mode of ['unavailable', 'timeout', 'reject', 'throw']) {
+        const warnings = [];
+        const messages = [];
+        const context = {
+            window: {}, garcomAtual: 'Teste', garcomId: '1', garcomPin: '1234',
+            canalImpressaoAtivo: mode !== 'unavailable',
+            canalImpressao: { send() {
+                if (mode === 'throw') throw new Error('Canal indisponível');
+                if (mode === 'reject') return Promise.reject(new Error('Rede indisponível'));
+                return Promise.resolve('timed out');
+            } },
+            pedidoPendente: { params: { p_employee_id: '1', p_request_id: 'same-request' } },
+            erroPedidoPendente: '', envioEmAndamento: false, previaEmAndamento: false,
+            mesaSelecionadaNumero: 3, itensRascunho: [{}], PENDING_REQUEST_KEY: 'pending', TABELA_STATE: 'app_state',
+            sessionStorage: { removeItem() {} },
+            supabase: {
+                from: () => ({ select() { return this; }, eq() { return this; }, single: async () => ({ data: { data: { _tableOrderVersion: 1 } } }) }),
+                rpc: async () => ({ data: { id: 8, mesa: 3 } })
+            },
+            fecharModal() {}, renderModalMesa() {}, carregarAppState: async () => {},
+            showToast: message => messages.push(message),
+            console: { error() {}, warn: (...args) => warnings.push(args) }
+        };
+        vm.runInNewContext(html.slice(start, end), context);
+        await context.window.enviarPedidoMesa();
+        await new Promise(resolve => setImmediate(resolve));
+        assert.equal(context.pedidoPendente, null, mode);
+        assert.equal(context.mesaSelecionadaNumero, null, mode);
+        assert.match(messages.at(-1), /Pedido #8 lançado/, mode);
+        assert.equal(warnings.length, 1, mode);
+    }
+});
+
+test('impede o envio para um banco que ainda não recebeu a migração de comandas', async () => {
+    const sendStart = html.indexOf('    function novoIdentificadorPedido(');
+    const sendEnd = html.indexOf('    window.sincronizarTudo', sendStart);
+    const messages = [];
+    let submitted = false;
+    const context = {
+        window: {}, garcomAtual: 'Teste', garcomId: '1', garcomPin: '1234',
+        canalImpressaoAtivo: false,
+        pedidoPendente: { params: { p_employee_id: '1' } }, erroPedidoPendente: '',
+        envioEmAndamento: false, previaEmAndamento: false, mesaSelecionadaNumero: 3,
+        TABELA_STATE: 'app_state',
+        supabase: {
+            from: () => ({ select() { return this; }, eq() { return this; }, single: async () => ({ data: { data: { _revision: 1 } } }) }),
+            rpc: async () => { submitted = true; }
+        },
+        showToast: message => messages.push(message), console
+    };
+    vm.runInNewContext(html.slice(sendStart, sendEnd), context);
+    await context.window.enviarPedidoMesa();
+    assert.equal(submitted, false);
+    assert.ok(context.pedidoPendente);
+    assert.match(messages[0], /Atualize o banco/);
 });
 
 function setupPreview({ printer = true, status = 'printed', createError = false, unauthorized = false, draft = false } = {}) {

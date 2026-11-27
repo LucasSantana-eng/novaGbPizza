@@ -114,6 +114,79 @@ test('automatic printing schedules an order only once per browser session', asyn
     assert.equal(printCount, 1);
 });
 
+test('table additions use distinct print keys for the same order without reprinting a retry', async () => {
+    const printed = [];
+    const context = {
+        automaticPrintQueue: new Set(), qzSettings: { enabled: true, automatic: true },
+        isPrintAgentConnected: () => true,
+        printBothThermal: order => { printed.push(order.tableBatchPrintId); return Promise.resolve(true); },
+        console, toast() {}
+    };
+    const schedule = extractFunction(
+        '        function scheduleAutomaticOrderPrint(',
+        '        function initSharedStateSync(',
+        'scheduleAutomaticOrderPrint',
+        context
+    );
+    schedule({ id: 1, tableBatchPrintId: 'a' });
+    schedule({ id: 1, tableBatchPrintId: 'b' });
+    schedule({ id: 1, tableBatchPrintId: 'b' });
+    await Promise.resolve();
+    assert.deepEqual(printed, ['a', 'b']);
+});
+
+test('remote table updates print only the newly added batch', () => {
+    const printed = [];
+    const old = { id: 7, type: 'MESA', mesa: 2, paid: false, status: 'PENDENTE',
+        tableBatches: [{ id: 'a', items: [{ name: 'Pizza' }], printRequested: true }] };
+    const context = {
+        S: { _revision: 1, orders: [old] }, sharedStateSaveCount: 0, sharedStateUpdatedAt: '',
+        DEF: { cats: {} }, normalizeCaixaState() {}, renderAll() {}, updateRolePermissions() {},
+        scheduleRemoteOrderPrint: order => printed.push(order), save() {}, toast() {},
+        isOrderOpen: order => !order.paid && order.status !== 'CANCELADO',
+        qzSettings: { enabled: true }, isPrintAgentConnected: () => true
+    };
+    const apply = extractFunction('        function applySharedState(', '        function initPrintAgentPresence(', 'applySharedState', context);
+    apply({ data: { _revision: 2, menu: { cats: {} }, orders: [{ ...old,
+        tableBatches: [...old.tableBatches, { id: 'b', items: [{ name: 'Refrigerante' }],
+            printRequested: true, onlineOrderPrint: true, at: 2 }]
+    }] } });
+    assert.equal(printed.length, 1);
+    assert.equal(printed[0].id, 7);
+    assert.equal(printed[0].tableBatchPrintId, 'b');
+    assert.deepEqual(printed[0].items, [{ name: 'Refrigerante' }]);
+});
+
+test('legacy print service prints only new table batches and marks each once', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+    let remote = { _revision: 1, orders: [{ id: 7, type: 'MESA', mesa: 2, status: 'PENDENTE',
+        tableBatches: [
+            { id: 'old', printRequested: false, items: [{ name: 'Pizza' }] },
+            { id: 'new', printRequested: true, items: [{ name: 'Suco' }] }
+        ] }] };
+    const printed = [];
+    const context = {
+        STATE_ID: 'gp_state', text: String, console,
+        printKitchenTicket: async order => printed.push(order.items.map(item => item.name)),
+        printOrder: async () => { throw new Error('Should not print the entire table'); },
+        supabase: { from: () => ({
+            select: () => ({ eq: () => ({ single: async () => ({ data: { data: JSON.parse(JSON.stringify(remote)) }, error: null }) }) }),
+            update: payload => ({ eq: async () => {
+                remote = JSON.parse(JSON.stringify(payload.data));
+                remote._revision++;
+                return { error: null };
+            } })
+        }) }
+    };
+    const start = source.indexOf('async function processLatestOrder()');
+    const end = source.indexOf('let processingQueue', start);
+    vm.runInNewContext(`${source.slice(start, end)}\nthis.process = processLatestOrder;`, context);
+    await context.process();
+    await context.process();
+    assert.deepEqual(printed, [['Suco']]);
+    assert.equal(remote.orders[0].tableBatches[1].printedByService, true);
+});
+
 test('accepted online orders print on the remote agent even when normal auto-print is off', async () => {
     let printCount = 0;
     const context = {
@@ -495,6 +568,204 @@ test('table and delivery order numbers are prominent on their receipts', async (
     assert.match(optionalService, /1x Pizza<\/span><span>30<\/span>/);
 });
 
+test('logo appears only on table closing and delivery cashier receipts, never kitchen tickets', async () => {
+    const context = {
+        thermalBrandMarkup: async includeLogo => `${includeLogo ? '<img class="tk-logo">' : ''}<div>Restaurante</div>`,
+        where: order => order.type, esc: String, money: String,
+        S: { menu: { ac: [] } }, qzSettings: { layoutDensity: 'compact', options: {} },
+        tkEnd: '', window: {}
+    };
+    const thermalMarkup = extractFunction(
+        '        async function thermalMarkup(',
+        '        async function printThermal(',
+        'thermalMarkup',
+        context
+    );
+    const order = { id: 8, type: 'MESA', mesa: 2, at: Date.now(),
+        items: [{ name: 'Pizza', qty: 1, price: 30, det: [] }], total: 30 };
+    const cases = [
+        ['kitchen', order, false],
+        ['kitchen', { ...order, type: 'DELIVERY' }, false],
+        ['kitchen', { ...order, type: 'DELIVERY', editNotice: { at: Date.now(), by: 'Caixa', before: {}, after: {} } }, false],
+        ['caixa', { ...order, accountPreview: true }, true],
+        ['caixa', { ...order, paid: true }, true],
+        ['caixa', { ...order, type: 'DELIVERY' }, true],
+        ['caixa', order, false],
+        ['caixa', { ...order, type: 'BALCAO' }, false],
+        ['cancel', { ...order, type: 'DELIVERY' }, false]
+    ];
+    for (const [type, receipt, hasLogo] of cases) {
+        const markup = await thermalMarkup(type, receipt);
+        assert.equal(markup.includes('class="tk-logo"'), hasLogo, `${type} ${receipt.type}`);
+        assert.match(markup, /<div>Restaurante<\/div>/);
+    }
+});
+
+test('receipt without a logo retains the header and does not fetch the image', async () => {
+    let fetches = 0;
+    const context = {
+        thermalLogoDataUrlPromise: undefined,
+        document: { baseURI: 'http://localhost/' }, URL,
+        fetch: async () => { fetches++; throw new Error('Logo indisponível'); },
+        qzSettings: { headerName: 'Restaurante', headerSubtitle: 'Pizzaria', headerContact: 'Contato' },
+        esc: String
+    };
+    const brand = extractFunction(
+        '        async function thermalBrandMarkup(',
+        '        async function printCaixa(',
+        'thermalBrandMarkup',
+        context
+    );
+    const markup = await brand(false);
+    assert.match(markup, /Restaurante/);
+    assert.match(markup, /Pizzaria/);
+    assert.match(markup, /Contato/);
+    assert.doesNotMatch(markup, /tk-logo/);
+    assert.equal(fetches, 0);
+    await assert.rejects(brand(), /Logo indisponível/);
+    assert.equal(fetches, 1);
+});
+
+test('delivery cashier receipt highlights drinks and displays a larger, labelled change amount', async () => {
+    const context = {
+        thermalBrandMarkup: async () => '', where: order => order.type,
+        esc: String, money: value => `R$ ${Number(value).toFixed(2)}`,
+        S: { menu: { ac: [], cats: { Drinks: [['Nevada', 20]] }, customItems: [] } },
+        qzSettings: { layoutDensity: 'compact', options: {} }, tkEnd: '', window: {}
+    };
+    const thermalMarkup = extractFunction(
+        '        async function thermalMarkup(',
+        '        async function printThermal(',
+        'thermalMarkup',
+        context
+    );
+    const order = {
+        id: 8, type: 'DELIVERY', at: Date.now(), total: 33, needsChange: true, cashChangeFor: 50,
+        items: [
+            { name: 'Pizza', category: 'Pizzas', qty: 1, price: 20, det: [] },
+            { name: 'Refrigerante', category: 'Bebidas', qty: 1, price: 6, det: [] },
+            { name: 'Água Mineral 500ml', qty: 1, price: 3, det: [] },
+            { name: 'Nevada', qty: 1, price: 4, det: [] }
+        ]
+    };
+    const receipt = await thermalMarkup('caixa', order);
+    assert.match(html, /\.tk-change\s*\{[^}]*font-size:\s*22px;[^}]*font-weight:\s*900/);
+    assert.match(html, /\.tk-beverage\s*\{[^}]*font-size:\s*16px;[^}]*font-weight:\s*900/);
+    assert.match(receipt, /class="tk-change"[\s\S]*Receber:<\/span><span>R\$ 50\.00[\s\S]*Troco:<\/span><span>R\$ 17\.00/);
+    assert.match(receipt, /<span class="tk-beverage">1x Refrigerante<\/span>/);
+    assert.match(receipt, /<span class="tk-beverage">1x Água Mineral 500ml<\/span>/);
+    assert.match(receipt, /<span class="tk-beverage">1x Nevada<\/span>/);
+    assert.match(receipt, /<span>1x Pizza<\/span>/);
+    const kitchen = await thermalMarkup('kitchen', order);
+    assert.doesNotMatch(kitchen, /tk-change|tk-beverage/);
+    const noChange = await thermalMarkup('caixa', { ...order, needsChange: false });
+    assert.doesNotMatch(noChange, /tk-change/);
+    assert.match(noChange, /SEM TROCO/);
+    const paid = await thermalMarkup('caixa', { ...order, paid: true });
+    assert.doesNotMatch(paid, /tk-change/);
+    const pickup = await thermalMarkup('caixa', { ...order, type: 'BALCAO', serviceType: 'RETIRADA' });
+    assert.doesNotMatch(pickup, /tk-change|tk-beverage/);
+    assert.match(pickup, /Troco para R\$ 50\.00/);
+});
+
+test('legacy delivery cashier ticket prints prominent change and bold item names', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+    const calls = [];
+    const printer = {};
+    for (const method of ['alignCenter', 'bold', 'setTextSize', 'println', 'drawLine', 'alignLeft', 'leftRight', 'cut', 'execute']) {
+        printer[method] = (...args) => { calls.push([method, ...args]); };
+    }
+    const context = {
+        createPrinter: () => printer, text: value => String(value || ''),
+        money: value => `R$ ${Number(value).toFixed(2)}`, orderLocation: () => 'Delivery',
+        getItemDetails: () => [], console: { log() {} }
+    };
+    const start = source.indexOf('async function printCashierTicket(');
+    const end = source.indexOf('async function printOrder(', start);
+    vm.runInNewContext(`${source.slice(start, end)}\nthis.print = printCashierTicket;`, context);
+    await context.print({
+        id: 1, type: 'DELIVERY', items: [{ name: 'Suco', qty: 1, price: 33 }],
+        total: 33, needsChange: true, cashChangeFor: 50
+    });
+    const drinkIndex = calls.findIndex(call => call[0] === 'println' && call[1] === '1x Suco');
+    assert.deepEqual(calls[drinkIndex - 1], ['bold', true]);
+    assert.ok(calls.some(call => call[0] === 'setTextSize' && call[1] === 1 && call[2] === 2));
+    assert.ok(calls.some(call => call[0] === 'leftRight' && call[1] === 'RECEBER' && call[2] === 'R$ 50.00'));
+    assert.ok(calls.some(call => call[0] === 'leftRight' && call[1] === 'TROCO' && call[2] === 'R$ 17.00'));
+});
+
+test('table bill groups equivalent items without changing prices, observations or stored orders', () => {
+    const shared = require('../mesa-conta-compartilhada.js');
+    const pizza = { name: 'Pizza', category: 'Pizzas', qty: 1, price: 30, det: ['Queijo'], obs: '' };
+    const orders = [
+        { id: 1, items: [pizza], sub: 30, svc: 3, total: 33 },
+        { id: 2, items: [
+            { ...pizza, qty: 2 },
+            { ...pizza, price: 25 },
+            { ...pizza, obs: 'Sem cebola' },
+            { ...pizza, det: ['Calabresa'] },
+            { ...pizza, category: 'Promoção' }
+        ], sub: 175, svc: 17.5, total: 192.5 }
+    ];
+    const bill = shared.createMesaBill(2, orders);
+    assert.deepEqual(bill.items.map(item => item.qty), [3, 1, 1, 1, 1]);
+    assert.equal(bill.total, 225.5);
+    assert.equal(pizza.qty, 1);
+    assert.equal(orders[1].items[0].qty, 2);
+});
+
+test('order management groups table items without changing the saved lines', () => {
+    const shared = require('../mesa-conta-compartilhada.js');
+    const lines = [
+        { name: 'Refrigerante', qty: 1, price: 6, det: [], obs: '' },
+        { name: 'Refrigerante', qty: 1, price: 6, det: [], obs: '' }
+    ];
+    const elements = { 'clear-order-history': { classList: { toggle() {} } }, 'orders-list-body': {} };
+    const context = {
+        S: { orders: [{ id: 1, type: 'MESA', mesa: 2, items: lines, total: 12, status: 'PENDENTE', paid: false }] },
+        window: { GabryelleMesa: shared }, $: id => elements[id],
+        stLabel: () => ['Aberta', 'gold'], isOrderOpen: () => true,
+        canClearOrderHistory: () => false, esc: String, money: String,
+        where: () => 'Mesa 2', expandedOrderId: 1, isAdmin: () => false,
+        canHandleOnlineOrders: () => false, lucide: { createIcons() {} }
+    };
+    const renderOrdersList = extractFunction(
+        '        function renderOrdersList(',
+        '        function limparHistoricoPedidos(',
+        'renderOrdersList',
+        context
+    );
+    renderOrdersList();
+    assert.match(elements['orders-list-body'].innerHTML, /2x Refrigerante/);
+    assert.doesNotMatch(elements['orders-list-body'].innerHTML, /1x Refrigerante/);
+    assert.equal(lines.length, 2);
+    assert.equal(lines[0].qty, 1);
+});
+
+test('table receipts omit item sequence numbers while preserving quantities and delivery settings', async () => {
+    const context = {
+        thermalBrandMarkup: async () => '', where: () => 'Delivery',
+        esc: String, money: String, S: { menu: { ac: [] } },
+        qzSettings: { layoutDensity: 'compact', options: { showItemNumber: true } },
+        tkEnd: '', window: {}
+    };
+    const thermalMarkup = extractFunction(
+        '        async function thermalMarkup(',
+        '        async function printThermal(',
+        'thermalMarkup',
+        context
+    );
+    const order = { id: 8, type: 'MESA', mesa: 2, at: Date.now(),
+        items: [{ name: 'Pizza', qty: 2, price: 30, det: [] }], total: 60 };
+    for (const type of ['kitchen', 'caixa']) {
+        const table = await thermalMarkup(type, order);
+        assert.match(table, /2x PIZZA|2x Pizza/);
+        assert.doesNotMatch(table, /1\. 2x/);
+        const delivery = await thermalMarkup(type, { ...order, type: 'DELIVERY' });
+        assert.match(delivery, /1\. 2x/);
+    }
+});
+
 test('delivery change receipt clearly distinguishes removed and added items', async () => {
     const context = {
         thermalBrandMarkup: async () => '', where: () => 'Delivery',
@@ -688,6 +959,57 @@ test('printer presence uses receive time to tolerate devices with different cloc
     assert.ok(Date.now() - context.printAgentPresenceSources.get('cashier') < 1000);
     handlers['status-request']();
     assert.equal(context.responded, true);
+});
+
+test('aviso do garçom consulta o banco imediatamente e imprime cada lote confirmado uma vez', async () => {
+    const handlers = {};
+    const requests = [];
+    const printed = [];
+    const channel = {
+        on(_type, filter, callback) { handlers[filter.event] = callback; return this; },
+        subscribe() { return this; }
+    };
+    const previous = { id: 7, type: 'MESA', mesa: 2, status: 'PENDENTE', tableBatches: [
+        { id: 'old', printRequested: true, items: [{ name: 'Pizza' }] }
+    ] };
+    const latest = { data: { _revision: 2, menu: { cats: {} }, orders: [{ ...previous, tableBatches: [
+        ...previous.tableBatches,
+        { id: 'new', printRequested: true, onlineOrderPrint: true, items: [{ name: 'Suco' }] }
+    ] }] } };
+    const context = {
+        S: { _revision: 1, orders: [previous] }, sharedStateSaveCount: 0, sharedStateSyncPending: false,
+        sharedStateUrgentSyncRequested: false, sharedStateWriteBlocked: false, sharedStateUpdatedAt: '',
+        printAgentPresenceChannel: null, printAgentPresenceSources: new Map(), PRINT_AGENT_PRESENCE_SOURCE_ID: 'cashier',
+        supabaseClient: {
+            channel: () => channel,
+            from: () => ({ select() { return this; }, eq() { return this; },
+                single: () => new Promise(resolve => requests.push(resolve)) })
+        },
+        DEF: { cats: {} }, normalizeCaixaState() {}, renderAll() {}, updateRolePermissions() {},
+        isOrderOpen: order => !order.paid && order.status !== 'CANCELADO',
+        qzSettings: { enabled: true, automatic: true }, isPrintAgentConnected: () => true,
+        printBothThermal: async order => { printed.push({ id: order.tableBatchPrintId, items: order.items }); return true; },
+        updateQzConnectionIndicator() {}, toast() {}, console
+    };
+    const start = html.indexOf('        function applySharedState(');
+    const end = html.indexOf('        function blockSharedStateWrites(', start);
+    vm.runInNewContext(`${html.slice(start, end)}\nthis.initPresence = initPrintAgentPresence; this.apply = applySharedState;`, context);
+    context.initPresence();
+    handlers['table-order-committed']({ payload: { fakeOrder: 'ignored' } });
+    assert.equal(requests.length, 1);
+    handlers['table-order-committed']({});
+    handlers['table-order-committed']({});
+    assert.equal(requests.length, 1);
+    requests[0]({ data: { data: { _revision: 1 } }, error: null });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(requests.length, 2);
+    requests[1]({ data: latest, error: null });
+    await new Promise(resolve => setImmediate(resolve));
+    context.apply(latest);
+    handlers['table-order-committed']({});
+    requests[2]({ data: latest, error: null });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(printed, [{ id: 'new', items: [{ name: 'Suco' }] }]);
 });
 
 test('pizza menu shows medium, large and family sizes before flavor selection', () => {

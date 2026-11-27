@@ -543,7 +543,8 @@
         return {
           numero,
           status: orders.length ? 'ocupada' : 'livre',
-          garcom: [...new Set(orders.map(order => order.by).filter(Boolean))].join(', '),
+          garcom: [...new Set(orders.flatMap(order =>
+            (order.tableBatches || []).length ? order.tableBatches.map(batch => batch.by) : [order.by]).filter(Boolean))].join(', '),
           total: orders.reduce((sum, order) => sum + Number(order.total || 0), 0),
           itens: orders.flatMap(order => (order.items || []).map((item, itemIndex) => ({
             id: `${order.id}-${itemIndex}`,
@@ -553,7 +554,7 @@
             detalhes: Array.isArray(item.det) ? item.det : [],
             observacao: item.obs || '',
             status: 'ativo',
-            garcom_nome: order.by || ''
+            garcom_nome: (order.tableBatches || []).find(batch => batch.id === item.tableBatchId)?.by || order.by || ''
           })))
         };
       });
@@ -1143,6 +1144,22 @@
       return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
     }
 
+    function avisarPedidoConfirmado() {
+      if (!canalImpressaoAtivo) {
+        console.warn('Aviso imediato indisponível; a sincronização periódica continuará ativa.');
+        return;
+      }
+      try {
+        Promise.resolve(canalImpressao.send({
+          type: 'broadcast', event: 'table-order-committed', payload: {}
+        })).then(status => {
+          if (status !== 'ok') console.warn('Aviso imediato não confirmado; a sincronização periódica continuará ativa:', status);
+        }).catch(error => console.warn('Não foi possível avisar o caixa imediatamente:', error));
+      } catch (error) {
+        console.warn('Não foi possível avisar o caixa imediatamente:', error);
+      }
+    }
+
     window.enviarPedidoMesa = async () => {
       if (envioEmAndamento) return;
       if (previaEmAndamento && mesaSelecionadaNumero === mesaPreviaNumero) {
@@ -1155,10 +1172,13 @@
         if (pedidoPendente && pedidoPendente.params.p_employee_id !== garcomId) {
           return showToast('Identifique-se com o funcionário que iniciou o envio pendente.');
         }
+        const { data: row, error: stateError } = await supabase.from(TABELA_STATE).select('data').eq('id', 'gp_state').single();
+        if (stateError) throw stateError;
+        if (row?.data?._tableOrderVersion !== 1) {
+          return showToast('Atualize o banco com o SQL de comandas antes de enviar itens.');
+        }
         if (!pedidoPendente) {
           if (!itensRascunho.length) return showToast('Adicione itens antes de enviar.');
-          const { data: row, error } = await supabase.from(TABELA_STATE).select('data').eq('id', 'gp_state').single();
-          if (error) throw error;
           if (!Number.isSafeInteger(row?.data?._revision)) {
             throw new Error('A proteção de sincronização ainda não foi instalada no Supabase.');
           }
@@ -1192,6 +1212,7 @@
           throw error;
         }
         if (!order?.id) throw new Error('O banco não confirmou o número do pedido.');
+        avisarPedidoConfirmado();
         sessionStorage.removeItem(PENDING_REQUEST_KEY);
         pedidoPendente = null;
         itensRascunho = [];

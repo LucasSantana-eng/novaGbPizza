@@ -16,6 +16,7 @@ function setup(initial) {
     const context = {
         S: JSON.parse(JSON.stringify(initial)), KEY: 'test',
         sharedStateSaveCount: 0, sharedStateWriteQueue: Promise.resolve(),
+        sharedStateUrgentSyncRequested: false,
         sharedStateWriteBlocked: false, sharedStateUpdatedAt: '', lastSharedStateSaveError: '',
         localStorage: { setItem(_key, value) { localWrites.push(JSON.parse(value)); } }, setSupabaseStatus() {}, toast() {},
         console: { error() {} },
@@ -64,4 +65,54 @@ test('caixa desatualizado não sobrescreve pedido remoto e bloqueia novas grava�
     assert.equal(env.localWrites.length, 0);
     assert.match(env.blocks[0], /outro dispositivo/);
     assert.equal(await env.context.save(), false);
+});
+
+test('aviso durante gravações aguarda todas e consulta o banco sem depender do intervalo', async () => {
+    const env = setup({ _revision: 0, orders: [] });
+    const originalFrom = env.context.supabaseClient.from;
+    let queries = 0;
+    env.context.supabaseClient.from = () => ({
+        ...originalFrom(),
+        select() { return this; },
+        eq() { return this; },
+        single: async () => { queries++; return { data: { data: env.getRemote() }, error: null }; }
+    });
+    env.context.sharedStateSyncPending = false;
+    env.context.applySharedState = () => true;
+    const start = html.indexOf('        function requestUrgentStateSync()');
+    const end = html.indexOf('        function blockSharedStateWrites(', start);
+    vm.runInNewContext(`${html.slice(start, end)}\nthis.requestUrgentStateSync = requestUrgentStateSync;`, env.context);
+    const first = env.context.save();
+    const second = env.context.save();
+    env.context.requestUrgentStateSync();
+    env.context.requestUrgentStateSync();
+    assert.equal(queries, 0);
+    assert.equal(await first, true);
+    assert.equal(await second, true);
+    assert.equal(queries, 1);
+});
+
+test('consulta em andamento é repetida se gravação impedir a aplicação da resposta', async () => {
+    const requests = [];
+    const context = {
+        sharedStateSyncPending: false, sharedStateUrgentSyncRequested: false,
+        sharedStateSaveCount: 0, sharedStateWriteBlocked: false,
+        supabaseClient: { from: () => ({ select() { return this; }, eq() { return this; },
+            single: () => new Promise(resolve => requests.push(resolve)) }) },
+        applySharedState: () => !context.sharedStateSaveCount,
+        console
+    };
+    const start = html.indexOf('        function requestUrgentStateSync()');
+    const end = html.indexOf('        function blockSharedStateWrites(', start);
+    vm.runInNewContext(`${html.slice(start, end)}\nthis.requestUrgentStateSync = requestUrgentStateSync;`, context);
+    context.requestUrgentStateSync();
+    context.sharedStateSaveCount = 1;
+    requests[0]({ data: { data: { _revision: 1 } }, error: null });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(context.sharedStateUrgentSyncRequested, true);
+    assert.equal(requests.length, 1);
+    context.sharedStateSaveCount = 0;
+    context.requestUrgentStateSync();
+    assert.equal(requests.length, 2);
+    requests[1]({ data: { data: { _revision: 2 } }, error: null });
 });

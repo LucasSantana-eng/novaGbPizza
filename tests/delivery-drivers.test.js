@@ -103,6 +103,27 @@ test('cash report sums fees and delivery counts per driver without affecting sal
     assert.deepEqual(JSON.parse(JSON.stringify(summarize({ movs: [] }).deliveryDrivers)), []);
 });
 
+test('table sales remain attributed to each attendant after consolidation and history cleanup', () => {
+    const shared = require('../mesa-conta-compartilhada.js');
+    const order = {
+        id: 8, type: 'MESA', by: 'Ana', sub: 50, svc: 5, total: 55,
+        items: [
+            { qty: 1, price: 40, tableBatchId: 'a' },
+            { qty: 1, price: 10, tableBatchId: 'b' }
+        ],
+        tableBatches: [{ id: 'a', by: 'Ana' }, { id: 'b', by: 'Bia' }]
+    };
+    const context = { S: { orders: [order] }, PAYS: ['Dinheiro', 'PIX'], window: { GabryelleMesa: shared } };
+    const summarize = extract('        function caixaResumo(', '        function caixaDateKey(', 'caixaResumo', context);
+    const cash = { movs: [
+        { type: 'Venda', orderId: 8, pay: 'Dinheiro', v: 20, orderSnapshot: order },
+        { type: 'Venda', orderId: 8, pay: 'PIX', v: 35, orderSnapshot: order }
+    ] };
+    assert.deepEqual(JSON.parse(JSON.stringify(summarize(cash).attendants)), { Ana: 44, Bia: 11 });
+    context.S.orders = [];
+    assert.deepEqual(JSON.parse(JSON.stringify(summarize(cash).attendants)), { Ana: 44, Bia: 11 });
+});
+
 test('delivery cannot be paid before dispatch and requires confirmation after dispatch', async () => {
     const orders = [
         { id: 1, type: 'DELIVERY', status: 'PENDENTE', total: 17, items: [] },

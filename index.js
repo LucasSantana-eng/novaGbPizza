@@ -134,7 +134,9 @@ async function printCashierTicket(order) {
         const quantity = Number(item.qty) || 0;
         const unitPrice = Number(item.price) || 0;
         const itemSubtotal = quantity * unitPrice;
+        if (order.type === 'DELIVERY') printer.bold(true);
         printer.println(`${quantity}x ${text(item.name, 'ITEM')}`);
+        if (order.type === 'DELIVERY') printer.bold(false);
         printer.println(`  ${money(unitPrice)} un.     Subtotal: ${money(itemSubtotal)}`);
         for (const detail of getItemDetails(item)) {
             printer.println(`  - ${detail}`);
@@ -150,6 +152,14 @@ async function printCashierTicket(order) {
     printer.leftRight('TOTAL GERAL', money(total));
     printer.bold(false);
     printer.println(`PAGAMENTO: ${text(order.pay || order.payPref, 'A receber')}`);
+    if (order.type === 'DELIVERY' && !order.paid && order.needsChange === true && Number.isFinite(Number(order.cashChangeFor))) {
+        printer.bold(true);
+        printer.setTextSize(1, 2);
+        printer.leftRight('RECEBER', money(order.cashChangeFor));
+        printer.leftRight('TROCO', money(order.cashChangeFor - total));
+        printer.setTextSize(1, 1);
+        printer.bold(false);
+    }
     printer.cut();
     await printer.execute();
     console.log(`🧾 Via do caixa impressa para o pedido #${text(order.id)}.`);
@@ -176,8 +186,35 @@ async function processLatestOrder() {
     }
     if (!Array.isArray(orders) || orders.length === 0) return;
 
+    const tableBatches = orders
+        .filter(order => order.type === 'MESA' && order.status !== 'CANCELADO' && !order.paid)
+        .flatMap(order => (order.tableBatches || [])
+            .filter(batch => batch.printRequested === true && !batch.printedByService)
+            .map(batch => ({ order, batch })));
+    for (const { order, batch } of tableBatches) {
+        await printKitchenTicket({ ...order, items: batch.items, at: batch.at, by: batch.by });
+        for (let attempt = 0; attempt < 5; attempt++) {
+            const { data: currentRow, error: currentError } = await supabase
+                .from('app_state').select('data').eq('id', STATE_ID).single();
+            if (currentError) throw currentError;
+            const current = currentRow?.data;
+            if (!current || !Array.isArray(current.orders) || !Number.isSafeInteger(current._revision)) {
+                throw new Error('O estado atualizado não contém pedidos e revisão de sincronização válidos.');
+            }
+            const currentOrder = current.orders.find(entry => String(entry.id) === String(order.id));
+            const currentBatch = currentOrder?.tableBatches?.find(entry => entry.id === batch.id);
+            if (!currentBatch) throw new Error(`Lançamento da mesa ${text(order.mesa)} não encontrado após impressão.`);
+            if (currentBatch.printedByService) break;
+            currentBatch.printedByService = true;
+            const { error: updateError } = await supabase
+                .from('app_state').update({ data: current, updated_at: new Date().toISOString() }).eq('id', STATE_ID);
+            if (!updateError) break;
+            if (updateError.code !== '40001' || attempt === 4) throw updateError;
+        }
+    }
+
     const latestOrder = orders[orders.length - 1];
-    if (!latestOrder || latestOrder.printedByService) return;
+    if (!latestOrder || latestOrder.printedByService || Array.isArray(latestOrder.tableBatches)) return;
     if (latestOrder.status === 'CANCELADO') {
         console.log(`⏭️ Pedido #${text(latestOrder.id)} cancelado; impressão ignorada.`);
         return;
